@@ -1,0 +1,5 @@
+{
+  "name": "inventory.electrohack2.0",
+  "description": "A real-time, controlled inventory management system to prevent component hoarding, ensure fair allocation, and give admins full override authority, with complete traceability.",
+  "requestFramePermissions": []
+}
