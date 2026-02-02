@@ -63,40 +63,6 @@ const Component = mongoose.model('Component', ComponentSchema);
 const Team = mongoose.model('Team', TeamSchema);
 const Request = mongoose.model('Request', RequestSchema);
 
-// --- HELPER: STOCK RECALCULATION ---
-// This fixes data drift (like negative reserved quantities) by syncing DB with actual active requests
-const recalculateInventory = async () => {
-    if (mongoose.connection.readyState !== 1) return;
-    
-    console.log('🔄 Syncing inventory reservation counts...');
-    try {
-        // 1. Reset all reserved counts to 0
-        await Component.updateMany({}, { $set: { reservedQuantity: 0 } });
-
-        // 2. Find all active requests (Pending, Modified, Approved)
-        const activeRequests = await Request.find({
-            status: { $in: ['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'] }
-        });
-
-        // 3. Sum up quantities per component
-        const reservationMap = {};
-        activeRequests.forEach(req => {
-            req.items.forEach(item => {
-                const id = item.componentId.toString();
-                reservationMap[id] = (reservationMap[id] || 0) + item.quantity;
-            });
-        });
-
-        // 4. Update components
-        for (const [id, qty] of Object.entries(reservationMap)) {
-            await Component.findByIdAndUpdate(id, { reservedQuantity: qty });
-        }
-        console.log('✅ Inventory reservations synchronized.');
-    } catch (err) {
-        console.error('❌ Failed to sync inventory:', err.message);
-    }
-};
-
 // --- API ROUTES ---
 
 // Health check to verify server and DB status
@@ -113,8 +79,8 @@ app.get('/api/health', (req, res) => {
 });
 
 
-// Initial seed and Sync
-const seedAndSync = async () => {
+// Initial seed if empty
+const seedDatabase = async () => {
   try {
     const count = await Component.countDocuments();
     if (count === 0) {
@@ -127,13 +93,12 @@ const seedAndSync = async () => {
       await Component.insertMany(mock);
       console.log('🌱 Database seeded with initial components');
     }
-    await recalculateInventory();
   } catch (err) {
-      console.error("Seed/Sync failed:", err.message);
+      console.error("Seeding failed. This may be okay if another instance is already seeding.", err.message);
   }
 };
-// Wait a moment for DB connection before attempting
-setTimeout(seedAndSync, 2000);
+// Wait a moment for DB connection before attempting to seed
+setTimeout(seedDatabase, 2000);
 
 // Get full inventory state
 app.get('/api/inventory', checkDbConnection, async (req, res) => {
@@ -214,57 +179,34 @@ app.post('/api/requests', checkDbConnection, async (req, res) => {
 // Update Request Status (Admin)
 app.patch('/api/requests/:id', checkDbConnection, async (req, res) => {
   const { id } = req.params;
-  const { status, items, notes } = req.body; // items is optional
-  
+  const { status, items, notes } = req.body;
   try {
     const oldRequest = await Request.findById(id);
     if (!oldRequest) return res.status(404).send('Request not found');
 
-    const newItems = items ? items : oldRequest.items;
-    const newStatus = status ? status : oldRequest.status;
-
-    // Helper to determine what bucket the stock falls into
-    // RESERVED: Counts towards reservedQuantity
-    // FINALIZED: Counts as deducted from totalQuantity
-    // NONE: No impact (e.g. REJECTED)
-    const getStockImpactType = (s) => {
-        if (['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'].includes(s)) return 'RESERVED';
-        if (s === 'COLLECTED') return 'FINALIZED';
-        return 'NONE';
-    };
-
-    const oldType = getStockImpactType(oldRequest.status);
-    const newType = getStockImpactType(newStatus);
-
-    // 1. Revert Old Impact (Undo what the old request was doing to the stock)
-    if (oldType === 'RESERVED') {
-        for (const item of oldRequest.items) {
-            await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: -item.quantity } });
-        }
-    } else if (oldType === 'FINALIZED') {
-        for (const item of oldRequest.items) {
-            await Component.findByIdAndUpdate(item.componentId, { $inc: { totalQuantity: item.quantity } });
-        }
+    const originalStatus = oldRequest.status;
+    
+    // Logic for stock adjustments
+    if (status === 'COLLECTED' && originalStatus !== 'COLLECTED') {
+      // Move from reserved to finalized deduction
+      for (const item of oldRequest.items) {
+        await Component.findByIdAndUpdate(item.componentId, {
+          $inc: { totalQuantity: -item.quantity, reservedQuantity: -item.quantity }
+        });
+      }
+    } else if (status === 'REJECTED' && originalStatus !== 'REJECTED' && originalStatus !== 'COLLECTED') {
+      // Release reservation
+      for (const item of oldRequest.items) {
+        await Component.findByIdAndUpdate(item.componentId, {
+          $inc: { reservedQuantity: -item.quantity }
+        });
+      }
     }
 
-    // 2. Apply New Impact (Apply what the new request state should do)
-    if (newType === 'RESERVED') {
-        for (const item of newItems) {
-            await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: item.quantity } });
-        }
-    } else if (newType === 'FINALIZED') {
-        for (const item of newItems) {
-            await Component.findByIdAndUpdate(item.componentId, { $inc: { totalQuantity: -item.quantity } });
-        }
-    }
-
-    // 3. Update Request Record
-    const updateData = { status: newStatus, notes };
-    if (items) {
-        updateData.items = items.map(i => ({ componentId: i.componentId, quantity: i.quantity }));
-    }
-
-    const updated = await Request.findByIdAndUpdate(id, updateData, { new: true });
+    const updated = await Request.findByIdAndUpdate(id, 
+      { status, notes, ...(items && { items: items.map(i => ({ componentId: i.componentId, quantity: i.quantity })) }) }, 
+      { new: true }
+    );
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -281,13 +223,15 @@ app.delete('/api/requests/:id', checkDbConnection, async (req, res) => {
     // Restore stock based on status
     if (request.status === 'COLLECTED') {
       // If collected, it was deducted from Total. Restore Total.
+      // (Reserved was already cleared during collection)
       for (const item of request.items) {
         await Component.findByIdAndUpdate(item.componentId, {
           $inc: { totalQuantity: item.quantity }
         });
       }
-    } else if (['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'].includes(request.status)) {
-      // If Reserved, release reservation.
+    } else if (request.status !== 'REJECTED') {
+      // If Pending, Modified, or Approved: Reserved quantity is still held.
+      // Restore Reserved. (Total was never touched).
       for (const item of request.items) {
         await Component.findByIdAndUpdate(item.componentId, {
           $inc: { reservedQuantity: -item.quantity }
