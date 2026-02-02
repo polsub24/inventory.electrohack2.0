@@ -65,47 +65,50 @@ const RequestList: React.FC<RequestListProps> = ({ statuses, emptyMessage }) => 
 
 
   if (filteredRequests.length === 0) {
-    return <Card className="border border-white/5 bg-gray-900/10 backdrop-blur-sm"><p className="text-center text-gray-500 py-12 uppercase tracking-widest text-[10px] sm:text-xs md:text-sm font-black">{emptyMessage}</p></Card>;
+    return <Card className="border border-gray-800 bg-gray-900/10 backdrop-blur-sm"><p className="text-center text-gray-500 py-12 uppercase tracking-widest text-[10px] sm:text-xs md:text-sm font-black">{emptyMessage}</p></Card>;
   }
 
   return (
-    <Card className="border border-white/5 bg-gray-900/20 p-0 overflow-hidden backdrop-blur-sm">
+    <Card className="border border-gray-800 bg-gray-900/20 p-0 overflow-hidden backdrop-blur-sm">
       <div className="overflow-x-auto scrollbar-thin">
-        <table className="w-full text-left min-w-[700px]">
-          <thead className="bg-white/5 border-b border-white/5">
+        <table className="w-full text-left min-w-[600px]">
+          <thead className="bg-black/40">
             <tr>
               <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Team Name</th>
               <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Leader</th>
               <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Reg #</th>
               <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Time</th>
               <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Status</th>
-              <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500 text-right">Action</th>
+              <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className="divide-y divide-gray-800">
             {filteredRequests.map(req => (
               <tr 
                 key={req.id} 
                 ref={rowRefs.current.get(req.id)}
-                className={`group transition-all duration-300 ${newRequestIds.has(req.id) ? 'bg-amber-500/10' : 'hover:bg-white/5'}`}
+                className={`transition-colors duration-500 ${newRequestIds.has(req.id) ? 'bg-amber-500/20' : 'hover:bg-amber-500/5 group'}`}
               >
-                <td className="p-4 font-bold text-gray-100 text-xs md:text-base">{req.team.teamName}</td>
-                <td className="p-4 text-gray-400 text-xs md:text-sm">{req.team.leaderName}</td>
-                <td className="p-4 text-gray-500 font-mono text-xs md:text-sm uppercase">{req.team.registrationNumber}</td>
-                <td className="p-4 text-gray-500 text-xs md:text-sm font-mono">{req.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                <td className="p-4 font-black text-gray-100 text-xs md:text-base">{req.team.teamName}</td>
+                <td className="p-4 text-gray-300 text-xs md:text-sm">{req.team.leaderName}</td>
+                <td className="p-4 text-gray-400 font-mono text-xs md:text-sm uppercase">{req.team.registrationNumber}</td>
+                <td className="p-4 text-gray-400 text-xs md:text-sm font-mono">{req.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                 <td className="p-4"><StatusBadge status={req.status} /></td>
                 <td className="p-4 text-right">
                   <button
                     onClick={() => navigate(`/admin/request/${req.id}`)}
-                    className="text-[10px] font-bold uppercase tracking-widest text-amber-500 hover:text-white border border-amber-500/30 hover:bg-amber-500 px-3 py-1.5 rounded transition-all opacity-80 group-hover:opacity-100"
+                    className="text-[10px] md:text-xs font-black uppercase tracking-widest text-amber-500 hover:text-white border border-amber-500/30 hover:bg-amber-500 px-3 py-1.5 md:px-4 md:py-2 rounded transition-all"
                   >
-                    View
+                    Manage
                   </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="bg-black/20 p-2 text-center lg:hidden">
+        <p className="text-[8px] text-gray-600 uppercase tracking-widest">Swipe table to view all columns</p>
       </div>
     </Card>
   );
