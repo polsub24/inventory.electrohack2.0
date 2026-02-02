@@ -1,8 +1,8 @@
-
 import React, { useState } from 'react';
 import { CartItem } from '../../types';
 import { useInventory } from '../../context/InventoryContext';
 import { useAuth } from '../../context/AuthContext';
+import { useAnimation } from '../../context/AnimationContext';
 import Button from '../common/Button';
 import Spinner from '../common/Spinner';
 
@@ -17,6 +17,7 @@ interface CartProps {
 const Cart: React.FC<CartProps> = ({ isOpen, onClose, cart, updateCartItemQuantity, clearCart }) => {
   const { getComponentById, submitRequest } = useInventory();
   const { user } = useAuth();
+  const { triggerSpark } = useAnimation();
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
@@ -31,9 +32,10 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose, cart, updateCartItemQuanti
     updateCartItemQuantity(componentId, 0);
   };
   
-  const handleSubmitRequest = async () => {
+  const handleSubmitRequest = async (event: React.MouseEvent<HTMLButtonElement>) => {
     if (!user || cart.length === 0) return;
     setIsLoading(true);
+    triggerSpark(event.clientX, event.clientY);
     try {
       await submitRequest(user.id, cart);
       setIsSubmitted(true);

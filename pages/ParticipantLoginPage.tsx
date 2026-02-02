@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useInventory } from '../context/InventoryContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
+import Spinner from '../components/common/Spinner';
 
 const ParticipantLoginPage: React.FC = () => {
   const [teamName, setTeamName] = useState('');
@@ -12,24 +11,22 @@ const ParticipantLoginPage: React.FC = () => {
   const [regNum, setRegNum] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { loginParticipant } = useAuth();
-  const { findTeamByRegNum, registerTeam } = useInventory();
+  const { loginParticipant, isLoading } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!teamName || !leaderName || !regNum) {
       setError('All fields are mandatory.');
       return;
     }
+    setError('');
 
-    let team = findTeamByRegNum(regNum);
-    if (team) {
-      loginParticipant(team);
-    } else {
-      const newTeam = registerTeam({ teamName, leaderName, registrationNumber: regNum });
-      loginParticipant(newTeam);
+    try {
+      await loginParticipant({ teamName, leaderName, registrationNumber: regNum });
+      navigate('/dashboard');
+    } catch (err) {
+      setError('Login failed. Please try again.');
     }
-    navigate('/dashboard');
   };
 
   return (
@@ -49,6 +46,7 @@ const ParticipantLoginPage: React.FC = () => {
               onChange={(e) => setTeamName(e.target.value)}
               className="mt-1 block w-full px-3 py-2 bg-black border border-gray-800 rounded-md shadow-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
               required
+              disabled={isLoading}
             />
           </div>
           <div>
@@ -60,6 +58,7 @@ const ParticipantLoginPage: React.FC = () => {
               onChange={(e) => setLeaderName(e.target.value)}
               className="mt-1 block w-full px-3 py-2 bg-black border border-gray-800 rounded-md shadow-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
               required
+              disabled={isLoading}
             />
           </div>
           <div>
@@ -71,11 +70,12 @@ const ParticipantLoginPage: React.FC = () => {
               onChange={(e) => setRegNum(e.target.value)}
               className="mt-1 block w-full px-3 py-2 bg-black border border-gray-800 rounded-md shadow-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
               required
+              disabled={isLoading}
             />
           </div>
           {error && <p className="text-red-500 text-sm font-bold">{error}</p>}
-          <Button type="submit" className="w-full mt-4 py-3">
-            Enter Dashboard
+          <Button type="submit" className="w-full mt-4 py-3" disabled={isLoading}>
+            {isLoading ? <Spinner /> : 'Enter Dashboard'}
           </Button>
         </form>
       </Card>

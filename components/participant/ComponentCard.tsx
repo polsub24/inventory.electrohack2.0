@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Component, CartItem } from '../../types';
 import Card from '../common/Card';
 import Button from '../common/Button';
@@ -14,11 +13,24 @@ interface ComponentCardProps {
 const ComponentCard: React.FC<ComponentCardProps> = ({ component, cart, addToCart, updateCartItemQuantity }) => {
   const [quantity, setQuantity] = useState(1);
   const availableQuantity = component.totalQuantity - component.reservedQuantity;
+  const [highlightClass, setHighlightClass] = useState('');
+  // FIX: Initialize useRef with `undefined` to satisfy the requirement of providing an initial value.
+  const prevAvailableQuantityRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    const prevQty = prevAvailableQuantityRef.current;
+    if (prevQty !== undefined && prevQty !== availableQuantity) {
+        setHighlightClass('highlight-pulse');
+        const timer = setTimeout(() => setHighlightClass(''), 1000); // Must match animation duration
+        return () => clearTimeout(timer);
+    }
+    prevAvailableQuantityRef.current = availableQuantity;
+  }, [availableQuantity]);
 
   const getStatus = () => {
-    if (availableQuantity <= 0) return { text: 'OUT OF STOCK', color: 'text-red-500' };
-    if (availableQuantity < 5) return { text: 'LOW STOCK', color: 'text-yellow-500' };
-    return { text: 'IN STOCK', color: 'text-amber-500' };
+    if (availableQuantity <= 0) return { text: 'OUT OF STOCK', color: 'text-red-500 border-red-900/40' };
+    if (availableQuantity < 5) return { text: 'LOW STOCK', color: 'text-amber-400 border-amber-900/40' };
+    return { text: 'AVAILABLE', color: 'text-green-500 border-green-900/40' };
   };
 
   const status = getStatus();
@@ -44,37 +56,42 @@ const ComponentCard: React.FC<ComponentCardProps> = ({ component, cart, addToCar
   }
 
   return (
-    <Card className="flex flex-col justify-between h-full transition-all duration-300 border border-gray-800 hover:border-amber-500/40 bg-gray-900/40">
+    <Card className="flex flex-col justify-between h-full transition-all duration-300 border border-gray-800/60 hover:border-amber-500/50 bg-gray-900/40 p-5 sm:p-7">
       <div>
-        <div className="flex justify-between items-start mb-2">
-            <h3 className="text-lg font-black text-white uppercase tracking-tight">{component.name}</h3>
-            <span className={`text-[10px] font-black tracking-widest uppercase border border-current px-2 py-0.5 rounded ${status.color}`}>{status.text}</span>
+        <div className="flex justify-between items-start mb-3">
+            <h3 className="text-base sm:text-xl font-black text-white uppercase tracking-tight line-clamp-2 leading-tight">{component.name}</h3>
         </div>
-        <p className="text-[10px] uppercase tracking-widest text-amber-500 font-bold mb-4">{component.category}</p>
-        <div className="grid grid-cols-1 gap-2 text-xs text-gray-400 mt-3 border-t border-gray-800 pt-3">
+        <div className="flex items-center space-x-2 mb-6">
+            <span className="text-[9px] font-black tracking-widest uppercase text-gray-500">{component.category}</span>
+            <span className={`text-[9px] font-black tracking-widest uppercase border px-2 py-0.5 rounded ${status.color}`}>{status.text}</span>
+        </div>
+        
+        <div className="flex items-end justify-between border-t border-gray-800/40 pt-5">
             <div>
-              <p className="text-[10px] uppercase tracking-tighter text-gray-500">Available to Request</p>
-              <p className="font-bold text-gray-100 text-xl">{availableQuantity}</p>
+              <p className="text-[10px] uppercase tracking-widest text-gray-600 font-black mb-1">Stock Left</p>
+              <p className={`font-black text-white text-2xl sm:text-4xl leading-none ${highlightClass}`}>{availableQuantity}</p>
             </div>
+            {quantityInCart > 0 && (
+              <div className="bg-amber-500/10 px-3 py-1 rounded border border-amber-500/20">
+                <p className="text-[10px] uppercase tracking-widest text-amber-500 font-black">In Cart: {quantityInCart}</p>
+              </div>
+            )}
         </div>
-        {quantityInCart > 0 && (
-          <div className="mt-3 bg-amber-500/10 p-2 rounded border border-amber-500/20">
-            <p className="text-[10px] uppercase tracking-widest text-amber-400 font-black">In Current Cart: {quantityInCart}</p>
-          </div>
-        )}
       </div>
-      <div className="mt-6 flex items-center space-x-2">
-        <input
-          type="number"
-          value={quantity}
-          onChange={handleQuantityChange}
-          min="1"
-          max={maxAllowed}
-          className="w-20 px-2 py-2 bg-black border border-gray-800 rounded text-center text-white focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:opacity-30"
-          disabled={maxAllowed <= 0}
-        />
-        <Button onClick={handleAddToCart} disabled={maxAllowed <= 0} className="flex-1 text-xs">
-          Add to Request
+      <div className="mt-8 flex items-center space-x-3">
+        <div className="relative">
+          <input
+            type="number"
+            value={quantity}
+            onChange={handleQuantityChange}
+            min="1"
+            max={maxAllowed}
+            className="w-16 sm:w-24 px-3 py-3 sm:py-4 bg-black border border-gray-800 rounded-lg text-center text-base sm:text-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-30 font-black"
+            disabled={maxAllowed <= 0}
+          />
+        </div>
+        <Button onClick={handleAddToCart} disabled={maxAllowed <= 0} className="flex-1 text-xs sm:text-sm py-3 sm:py-4 h-auto font-black">
+          Add to Cart
         </Button>
       </div>
     </Card>

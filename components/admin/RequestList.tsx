@@ -1,7 +1,7 @@
-
-import React from 'react';
+import React, { useState, useEffect, useRef, createRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from '../../context/InventoryContext';
+import { useAnimation } from '../../context/AnimationContext';
 import { RequestStatus } from '../../types';
 import Card from '../common/Card';
 import StatusBadge from '../common/StatusBadge';
@@ -13,20 +13,65 @@ interface RequestListProps {
 
 const RequestList: React.FC<RequestListProps> = ({ statuses, emptyMessage }) => {
   const { requests } = useInventory();
+  const { triggerSpark } = useAnimation();
   const navigate = useNavigate();
+  const [newRequestIds, setNewRequestIds] = useState<Set<string>>(new Set());
+  
+  const rowRefs = useRef<Map<string, React.RefObject<HTMLTableRowElement>>>(new Map());
 
   const filteredRequests = requests
     .filter(r => statuses.includes(r.status))
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
+  // Ensure refs are created for each request
+  filteredRequests.forEach(req => {
+    if (!rowRefs.current.has(req.id)) {
+      rowRefs.current.set(req.id, createRef<HTMLTableRowElement>());
+    }
+  });
+
+  const prevFilteredIdsRef = useRef<Set<string>>(new Set(filteredRequests.map(r => r.id)));
+
+  useEffect(() => {
+      const currentIds = new Set(filteredRequests.map(r => r.id));
+      const prevIds = prevFilteredIdsRef.current;
+
+      const newlyAddedIds = [...currentIds].filter(id => !prevIds.has(id));
+
+      if (newlyAddedIds.length > 0) {
+          setNewRequestIds(current => new Set([...current, ...newlyAddedIds]));
+          
+          newlyAddedIds.forEach(id => {
+              const rowRef = rowRefs.current.get(id);
+              if (rowRef?.current) {
+                  const rect = rowRef.current.getBoundingClientRect();
+                  triggerSpark(rect.left + 30, rect.top + rect.height / 2);
+              }
+          });
+
+          const timer = setTimeout(() => {
+              setNewRequestIds(current => {
+                  const newSet = new Set(current);
+                  newlyAddedIds.forEach(id => newSet.delete(id));
+                  return newSet;
+              });
+          }, 5000); // Highlight duration
+          
+          return () => clearTimeout(timer);
+      }
+
+      prevFilteredIdsRef.current = currentIds;
+  }, [filteredRequests, triggerSpark]);
+
+
   if (filteredRequests.length === 0) {
-    return <Card className="border border-gray-800 bg-gray-900/10"><p className="text-center text-gray-500 py-10 uppercase tracking-widest text-xs font-black">{emptyMessage}</p></Card>;
+    return <Card className="border border-gray-800 bg-gray-900/10 backdrop-blur-sm"><p className="text-center text-gray-500 py-12 uppercase tracking-widest text-[10px] sm:text-xs font-black">{emptyMessage}</p></Card>;
   }
 
   return (
-    <Card className="border border-gray-800 bg-gray-900/20 p-0 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
+    <Card className="border border-gray-800 bg-gray-900/20 p-0 overflow-hidden backdrop-blur-sm">
+      <div className="overflow-x-auto scrollbar-thin">
+        <table className="w-full text-left min-w-[600px]">
           <thead className="bg-black/40">
             <tr>
               <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Team Name</th>
@@ -38,23 +83,30 @@ const RequestList: React.FC<RequestListProps> = ({ statuses, emptyMessage }) => 
           </thead>
           <tbody className="divide-y divide-gray-800">
             {filteredRequests.map(req => (
-              <tr key={req.id} className="hover:bg-amber-500/5 transition-colors group">
+              <tr 
+                key={req.id} 
+                ref={rowRefs.current.get(req.id)}
+                className={`transition-colors duration-500 ${newRequestIds.has(req.id) ? 'bg-amber-500/20' : 'hover:bg-amber-500/5 group'}`}
+              >
                 <td className="p-4 font-black text-gray-100">{req.team.teamName}</td>
                 <td className="p-4 text-gray-400 font-mono text-xs uppercase">{req.team.registrationNumber}</td>
-                <td className="p-4 text-gray-400 text-xs font-mono">{req.timestamp.toLocaleTimeString()}</td>
+                <td className="p-4 text-gray-400 text-xs font-mono">{req.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                 <td className="p-4"><StatusBadge status={req.status} /></td>
                 <td className="p-4 text-right">
                   <button
                     onClick={() => navigate(`/admin/request/${req.id}`)}
-                    className="text-[10px] font-black uppercase tracking-widest text-amber-500 hover:text-white border border-amber-500/30 hover:bg-amber-500 px-3 py-1 rounded transition-all"
+                    className="text-[10px] font-black uppercase tracking-widest text-amber-500 hover:text-white border border-amber-500/30 hover:bg-amber-500 px-3 py-1.5 rounded transition-all"
                   >
-                    View
+                    Manage
                   </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="bg-black/20 p-2 text-center lg:hidden">
+        <p className="text-[8px] text-gray-600 uppercase tracking-widest">Swipe table to view all columns</p>
       </div>
     </Card>
   );

@@ -1,15 +1,16 @@
-
 import React, { useState } from 'react';
 import { useInventory } from '../../context/InventoryContext';
 import { Component, ComponentCategory } from '../../types';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
+import Spinner from '../common/Spinner';
 
 const InventoryManager: React.FC = () => {
   const { components, upsertComponent } = useInventory();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingComponent, setEditingComponent] = useState<Partial<Component> | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const openAddModal = () => {
     setEditingComponent({
@@ -26,16 +27,23 @@ const InventoryManager: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (editingComponent && editingComponent.id && editingComponent.name && editingComponent.category) {
-      upsertComponent({
-        id: editingComponent.id,
-        name: editingComponent.name,
-        category: editingComponent.category as ComponentCategory,
-        totalQuantity: editingComponent.totalQuantity || 0,
-      });
-      setIsModalOpen(false);
-      setEditingComponent(null);
+      setIsSaving(true);
+      try {
+        await upsertComponent({
+            id: editingComponent.id,
+            name: editingComponent.name,
+            category: editingComponent.category as ComponentCategory,
+            totalQuantity: editingComponent.totalQuantity || 0,
+        });
+        setIsModalOpen(false);
+        setEditingComponent(null);
+      } catch (error) {
+          console.error("Failed to save component", error);
+      } finally {
+          setIsSaving(false);
+      }
     }
   };
 
@@ -91,8 +99,10 @@ const InventoryManager: React.FC = () => {
         title={editingComponent?.name ? "Edit Component" : "Add New Component"}
         footer={
           <div className="flex space-x-3">
-             <Button onClick={() => setIsModalOpen(false)} variant="secondary" className="px-6">Cancel</Button>
-             <Button onClick={handleSave} className="px-8 bg-amber-600 hover:bg-amber-500">Save Changes</Button>
+             <Button onClick={() => setIsModalOpen(false)} variant="secondary" className="px-6" disabled={isSaving}>Cancel</Button>
+             <Button onClick={handleSave} className="px-8 bg-amber-600 hover:bg-amber-500" disabled={isSaving}>
+                {isSaving ? <Spinner/> : 'Save Changes'}
+             </Button>
           </div>
         }
       >

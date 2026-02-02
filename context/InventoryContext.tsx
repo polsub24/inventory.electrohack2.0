@@ -1,172 +1,114 @@
-
-import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
-import { Component, Team, Request, CartItem, RequestStatus, RequestItem, ComponentCategory } from '../types';
-import { MOCK_COMPONENTS, MOCK_TEAMS, MOCK_REQUESTS } from '../components/participant/constants';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
+import { Component, Team, Request, CartItem, RequestStatus } from '../types';
+import api from '../server/api';
 
 interface InventoryContextType {
   components: Component[];
   teams: Team[];
   requests: Request[];
-  findTeamByRegNum: (regNum: string) => Team | undefined;
-  registerTeam: (teamData: Omit<Team, 'id'>) => Team;
-  getRequestsForTeam: (teamId: string) => Request[];
-  submitRequest: (teamId: string, cart: CartItem[]) => Promise<void>;
-  updateRequestByAdmin: (requestId: string, updatedItems: { componentId: string, quantity: number }[], notes: string) => Promise<void>;
-  approveRequest: (requestId: string) => Promise<void>;
-  rejectRequest: (requestId: string) => Promise<void>;
-  releaseComponents: (requestId: string) => Promise<void>;
+  isLoading: boolean;
+  lastSync: Date;
+  refreshData: () => Promise<void>;
+  submitRequest: (teamId: string, cart: CartItem[]) => Promise<Request>;
+  updateRequestByAdmin: (requestId: string, updatedItems: { componentId: string, quantity: number }[], notes: string) => Promise<Request>;
+  approveRequest: (requestId: string) => Promise<Request>;
+  rejectRequest: (requestId: string) => Promise<Request>;
+  releaseComponents: (requestId: string) => Promise<Request>;
   getComponentById: (id: string) => Component | undefined;
-  upsertComponent: (componentData: Omit<Component, 'reservedQuantity'>) => void;
+  // FIX: Added getRequestsForTeam to the context type.
+  getRequestsForTeam: (teamId: string) => Request[];
+  upsertComponent: (componentData: Omit<Component, 'reservedQuantity'>) => Promise<Component>;
 }
 
 const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
 
 export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [components, setComponents] = useState<Component[]>(MOCK_COMPONENTS);
-  const [teams, setTeams] = useState<Team[]>(MOCK_TEAMS);
-  const [requests, setRequests] = useState<Request[]>(MOCK_REQUESTS);
+  const [components, setComponents] = useState<Component[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [lastSync, setLastSync] = useState<Date>(new Date());
+
+  const refreshData = useCallback(async () => {
+    // To avoid flashing a loading state on every poll, we don't set isLoading to true here.
+    // It's initialized as true and set to false after the first fetch.
+    try {
+      const { components, teams, requests } = await api.getInventoryData();
+      setComponents(components);
+      setTeams(teams);
+      setRequests(requests);
+      setLastSync(new Date());
+    } catch (error) {
+      console.error("Failed to fetch inventory data", error);
+    } finally {
+      setIsLoading(false); // This ensures loading is false after the first fetch.
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
+
+  useEffect(() => {
+      const interval = setInterval(() => {
+          refreshData();
+      }, 2000); // Reduced interval to 2 seconds for a more "real-time" feel.
+      return () => clearInterval(interval);
+  },[refreshData]);
 
   const getComponentById = useCallback((id: string) => components.find(c => c.id === id), [components]);
+  
+  // FIX: Implemented getRequestsForTeam to filter requests for a given team ID.
+  const getRequestsForTeam = useCallback(
+    (teamId: string) => {
+      return requests
+        .filter((r) => r.teamId === teamId)
+        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    },
+    [requests]
+  );
 
-  const findTeamByRegNum = useCallback((regNum: string) => teams.find(t => t.registrationNumber === regNum), [teams]);
+  const submitRequest = async (teamId: string, cart: CartItem[]) => {
+      const newRequest = await api.submitRequest(teamId, cart);
+      await refreshData(); // Refresh all data to ensure consistency
+      return newRequest;
+  };
 
-  const registerTeam = useCallback((teamData: Omit<Team, 'id'>) => {
-    const newTeam: Team = { ...teamData, id: `t${teams.length + 1}` };
-    setTeams(prev => [...prev, newTeam]);
-    return newTeam;
-  }, [teams.length]);
+  const updateRequestByAdmin = async (requestId: string, updatedItems: { componentId: string, quantity: number }[], notes: string) => {
+      const updatedRequest = await api.updateRequest(requestId, RequestStatus.Modified, updatedItems, notes);
+      await refreshData();
+      return updatedRequest;
+  };
+  
+  const approveRequest = async (requestId: string) => {
+      const updatedRequest = await api.updateRequest(requestId, RequestStatus.Approved);
+      await refreshData();
+      return updatedRequest;
+  };
 
-  const getRequestsForTeam = useCallback((teamId: string) => {
-    return requests.filter(r => r.teamId === teamId).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [requests]);
+  const rejectRequest = async (requestId: string) => {
+      const updatedRequest = await api.updateRequest(requestId, RequestStatus.Rejected);
+      await refreshData();
+      return updatedRequest;
+  };
 
-  const submitRequest = useCallback(async (teamId: string, cart: CartItem[]) => {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        setComponents(prevComponents => {
-          const newComponents = [...prevComponents];
-          for (const item of cart) {
-            const compIndex = newComponents.findIndex(c => c.id === item.componentId);
-            if (compIndex !== -1) {
-              newComponents[compIndex].reservedQuantity += item.quantity;
-            }
-          }
-          return newComponents;
-        });
+  const releaseComponents = async (requestId: string) => {
+      const updatedRequest = await api.updateRequest(requestId, RequestStatus.Collected);
+      await refreshData();
+      return updatedRequest;
+  };
 
-        const team = teams.find(t => t.id === teamId);
-        if (!team) return;
-
-        const newRequest: Request = {
-          id: `r${requests.length + 1}`,
-          teamId,
-          team,
-          status: RequestStatus.Pending,
-          items: cart.map(item => ({
-            componentId: item.componentId,
-            quantity: item.quantity,
-            component: components.find(c => c.id === item.componentId)!,
-          })),
-          timestamp: new Date(),
-        };
-        setRequests(prev => [newRequest, ...prev]);
-        resolve();
-      }, 500);
-    });
-  }, [components, requests.length, teams]);
-
-  const updateRequestByAdmin = useCallback(async (requestId: string, updatedItems: { componentId: string, quantity: number }[], notes: string) => {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        setRequests(prevReqs => {
-          return prevReqs.map(req => {
-            if (req.id === requestId) {
-              const newItems = updatedItems.map(item => ({
-                ...item,
-                component: components.find(c => c.id === item.componentId)!
-              }));
-              return { ...req, items: newItems, status: RequestStatus.Modified, notes };
-            }
-            return req;
-          });
-        });
-        resolve();
-      }, 500);
-    });
-  }, [components]);
-
-  const approveRequest = useCallback(async (requestId: string) => {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: RequestStatus.Approved } : r));
-        resolve();
-      }, 500);
-    });
-  }, []);
-
-  const rejectRequest = useCallback(async (requestId: string) => {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        const request = requests.find(r => r.id === requestId);
-        if (!request) return;
-
-        setComponents(prevComponents => {
-          const newComponents = [...prevComponents];
-          for (const item of request.items) {
-            const compIndex = newComponents.findIndex(c => c.id === item.componentId);
-            if (compIndex !== -1) {
-              newComponents[compIndex].reservedQuantity -= item.quantity;
-            }
-          }
-          return newComponents;
-        });
-
-        setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: RequestStatus.Rejected } : r));
-        resolve();
-      }, 500);
-    });
-  }, [requests]);
-
-  const releaseComponents = useCallback(async (requestId: string) => {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        const request = requests.find(r => r.id === requestId);
-        if (!request) return;
-
-        setComponents(prevComponents => {
-          const newComponents = [...prevComponents];
-          for (const item of request.items) {
-            const compIndex = newComponents.findIndex(c => c.id === item.componentId);
-            if (compIndex !== -1) {
-              newComponents[compIndex].totalQuantity -= item.quantity;
-              newComponents[compIndex].reservedQuantity -= item.quantity;
-            }
-          }
-          return newComponents;
-        });
-
-        setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: RequestStatus.Collected } : r));
-        resolve();
-      }, 500);
-    });
-  }, [requests]);
-
-  const upsertComponent = useCallback((componentData: Omit<Component, 'reservedQuantity'>) => {
-    setComponents(prev => {
-      const existingIndex = prev.findIndex(c => c.id === componentData.id);
-      if (existingIndex !== -1) {
-        const newComponents = [...prev];
-        newComponents[existingIndex] = { ...prev[existingIndex], ...componentData };
-        return newComponents;
-      }
-      return [...prev, { ...componentData, reservedQuantity: 0 }];
-    });
-  }, []);
+  const upsertComponent = async (componentData: Omit<Component, 'reservedQuantity'>) => {
+      const savedComponent = await api.upsertComponent(componentData);
+      await refreshData();
+      return savedComponent;
+  };
 
   return (
     <InventoryContext.Provider value={{
-      components, teams, requests, findTeamByRegNum, registerTeam, getRequestsForTeam, submitRequest,
-      updateRequestByAdmin, approveRequest, rejectRequest, releaseComponents, getComponentById, upsertComponent
+      components, teams, requests, isLoading, lastSync, refreshData, getComponentById,
+      getRequestsForTeam,
+      submitRequest, updateRequestByAdmin, approveRequest, rejectRequest, releaseComponents, upsertComponent
     }}>
       {children}
     </InventoryContext.Provider>

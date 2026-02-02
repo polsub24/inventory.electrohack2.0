@@ -1,28 +1,32 @@
-
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { InventoryProvider } from './context/InventoryContext';
+import { AnimationProvider } from './context/AnimationContext';
 import ParticipantLoginPage from './pages/ParticipantLoginPage';
 import ParticipantDashboardPage from './pages/ParticipantDashboardPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminRequestDetailPage from './pages/AdminRequestDetailPage';
 import Header from './components/common/Header';
+import BackgroundLines from './components/common/BackgroundLines';
 import { UserRole } from './types';
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
       <InventoryProvider>
-        <HashRouter>
-          <div className="min-h-screen flex flex-col">
-            <Header />
-            <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8">
-              <AppRoutes />
-            </main>
-          </div>
-        </HashRouter>
+        <AnimationProvider>
+          <HashRouter>
+            <div className="min-h-screen flex flex-col relative overflow-hidden">
+              <BackgroundLines />
+              <Header />
+              <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 z-10">
+                <AppRoutes />
+              </main>
+            </div>
+          </HashRouter>
+        </AnimationProvider>
       </InventoryProvider>
     </AuthProvider>
   );

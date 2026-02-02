@@ -1,27 +1,61 @@
-
-import React, { createContext, useState, useContext, ReactNode, useMemo } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { User, UserRole, Team } from '../types';
+import api from '../server/api';
 
 interface AuthContextType {
   user: User | null;
-  loginParticipant: (team: Team) => void;
+  isLoading: boolean;
+  loginParticipant: (teamData: { teamName: string; leaderName: string; registrationNumber: string; }) => Promise<Team>;
   loginAdmin: () => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+const SESSION_STORAGE_KEY = 'electrohack_user_session';
 
-  const loginParticipant = (team: Team) => {
-    const participantUser: User = {
-      id: team.id,
-      name: `${team.teamName} (${team.leaderName})`,
-      role: UserRole.Participant,
-    };
-    setUser(participantUser);
-  };
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const storedUser = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch (error) {
+      console.error("Error reading user from session storage", error);
+      return null;
+    }
+  });
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (user) {
+        window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
+      } else {
+        window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      }
+    } catch (error) {
+      console.error("Error writing user to session storage", error);
+    }
+  }, [user]);
+
+  const loginParticipant = useCallback(async (teamData: { teamName: string; leaderName: string; registrationNumber: string; }) => {
+      setIsLoading(true);
+      try {
+          const team = await api.loginOrRegisterTeam(teamData);
+          const participantUser: User = {
+              id: team.id,
+              name: `${team.teamName} (${team.leaderName})`,
+              role: UserRole.Participant,
+          };
+          setUser(participantUser);
+          return team;
+      } catch (error) {
+          console.error("Participant login failed", error);
+          throw error;
+      } finally {
+          setIsLoading(false);
+      }
+  }, []);
 
   const loginAdmin = () => {
     const adminUser: User = {
@@ -36,10 +70,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
   };
 
-  const value = useMemo(() => ({ user, loginParticipant, loginAdmin, logout }), [user]);
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, isLoading, loginParticipant, loginAdmin, logout }}>
       {children}
     </AuthContext.Provider>
   );
