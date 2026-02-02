@@ -14,8 +14,8 @@ interface InventoryContextType {
   approveRequest: (requestId: string) => Promise<Request>;
   rejectRequest: (requestId: string) => Promise<Request>;
   releaseComponents: (requestId: string) => Promise<Request>;
+  deleteRequest: (requestId: string) => Promise<void>;
   getComponentById: (id: string) => Component | undefined;
-  // FIX: Added getRequestsForTeam to the context type.
   getRequestsForTeam: (teamId: string) => Request[];
   upsertComponent: (componentData: Omit<Component, 'reservedQuantity'>) => Promise<Component>;
 }
@@ -58,7 +58,6 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   const getComponentById = useCallback((id: string) => components.find(c => c.id === id), [components]);
   
-  // FIX: Implemented getRequestsForTeam to filter requests for a given team ID.
   const getRequestsForTeam = useCallback(
     (teamId: string) => {
       return requests
@@ -98,6 +97,11 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
       return updatedRequest;
   };
 
+  const deleteRequest = async (requestId: string) => {
+      await api.deleteRequest(requestId);
+      await refreshData();
+  };
+
   const upsertComponent = async (componentData: Omit<Component, 'reservedQuantity'>) => {
       const savedComponent = await api.upsertComponent(componentData);
       await refreshData();
@@ -108,7 +112,7 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
     <InventoryContext.Provider value={{
       components, teams, requests, isLoading, lastSync, refreshData, getComponentById,
       getRequestsForTeam,
-      submitRequest, updateRequestByAdmin, approveRequest, rejectRequest, releaseComponents, upsertComponent
+      submitRequest, updateRequestByAdmin, approveRequest, rejectRequest, releaseComponents, deleteRequest, upsertComponent
     }}>
       {children}
     </InventoryContext.Provider>

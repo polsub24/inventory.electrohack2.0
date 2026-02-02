@@ -213,6 +213,40 @@ app.patch('/api/requests/:id', checkDbConnection, async (req, res) => {
   }
 });
 
+// Delete Request (Admin - Delete History)
+app.delete('/api/requests/:id', checkDbConnection, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const request = await Request.findById(id);
+    if (!request) return res.status(404).json({ error: 'Request not found' });
+
+    // Restore stock based on status
+    if (request.status === 'COLLECTED') {
+      // If collected, it was deducted from Total. Restore Total.
+      // (Reserved was already cleared during collection)
+      for (const item of request.items) {
+        await Component.findByIdAndUpdate(item.componentId, {
+          $inc: { totalQuantity: item.quantity }
+        });
+      }
+    } else if (request.status !== 'REJECTED') {
+      // If Pending, Modified, or Approved: Reserved quantity is still held.
+      // Restore Reserved. (Total was never touched).
+      for (const item of request.items) {
+        await Component.findByIdAndUpdate(item.componentId, {
+          $inc: { reservedQuantity: -item.quantity }
+        });
+      }
+    }
+    // If Rejected, stock was already released, just delete record.
+
+    await Request.findByIdAndDelete(id);
+    res.json({ message: 'Request deleted and stock restored' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Manage Components
 app.put('/api/components', checkDbConnection, async (req, res) => {
   const { id, name, category, totalQuantity } = req.body;

@@ -68,6 +68,13 @@ const api = {
     return response.json();
   },
 
+  async deleteRequest(requestId: string): Promise<void> {
+    const response = await fetch(`${BASE_URL}/api/requests/${requestId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw await createApiError(response, 'Failed to delete request');
+  },
+
   async upsertComponent(componentData: Omit<Component, 'reservedQuantity'>): Promise<Component> {
     const response = await fetch(`${BASE_URL}/api/components`, {
       method: 'PUT',

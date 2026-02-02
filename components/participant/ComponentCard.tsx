@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Component, CartItem } from '../../types';
 import Card from '../common/Card';
@@ -12,7 +11,6 @@ interface ComponentCardProps {
 }
 
 const ComponentCard: React.FC<ComponentCardProps> = ({ component, cart, addToCart, updateCartItemQuantity }) => {
-  const [quantity, setQuantity] = React.useState(1);
   const availableQuantity = component.totalQuantity - component.reservedQuantity;
   const [highlightClass, setHighlightClass] = React.useState('');
   const prevAvailableQuantityRef = React.useRef<number | undefined>(undefined);
@@ -37,23 +35,25 @@ const ComponentCard: React.FC<ComponentCardProps> = ({ component, cart, addToCar
   
   const cartItem = cart.find(item => item.componentId === component.id);
   const quantityInCart = cartItem ? cartItem.quantity : 0;
+  const isInCart = quantityInCart > 0;
 
   const maxAllowed = availableQuantity;
 
   const handleAddToCart = () => {
-    if (quantity > 0 && quantity <= maxAllowed) {
-      addToCart(component.id, quantity);
-      setQuantity(1);
+    if (maxAllowed > 0) {
+      addToCart(component.id, 1);
     }
   };
-  
-  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = parseInt(e.target.value, 10);
-    if (isNaN(value)) value = 1;
-    if (value < 1) value = 1;
-    if (value > maxAllowed) value = maxAllowed;
-    setQuantity(value);
-  }
+
+  const increment = () => {
+      if (quantityInCart < maxAllowed) {
+          updateCartItemQuantity(component.id, quantityInCart + 1);
+      }
+  };
+
+  const decrement = () => {
+      updateCartItemQuantity(component.id, quantityInCart - 1);
+  };
 
   return (
     <Card className="flex flex-col justify-between h-full transition-all duration-300 border border-gray-800/60 hover:border-amber-500/50 bg-gray-900/40 p-5 sm:p-7">
@@ -71,28 +71,31 @@ const ComponentCard: React.FC<ComponentCardProps> = ({ component, cart, addToCar
               <p className="text-[10px] uppercase tracking-widest text-gray-600 font-black mb-1">Stock Left</p>
               <p className={`font-black text-white text-2xl sm:text-4xl leading-none ${highlightClass}`}>{availableQuantity}</p>
             </div>
-            {quantityInCart > 0 && (
-              <div className="bg-amber-500/10 px-3 py-1 rounded border border-amber-500/20">
-                <p className="text-[10px] uppercase tracking-widest text-amber-500 font-black">In Cart: {quantityInCart}</p>
-              </div>
-            )}
         </div>
       </div>
-      <div className="mt-8 flex items-center space-x-3">
-        <div className="relative">
-          <input
-            type="number"
-            value={quantity}
-            onChange={handleQuantityChange}
-            min="1"
-            max={maxAllowed}
-            className="w-16 sm:w-24 px-3 py-3 sm:py-4 bg-black border border-gray-800 rounded-lg text-center text-base sm:text-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-30 font-black"
-            disabled={maxAllowed <= 0}
-          />
-        </div>
-        <Button onClick={handleAddToCart} disabled={maxAllowed <= 0} className="flex-1 text-xs sm:text-sm py-3 sm:py-4 h-auto font-black">
-          Add to Cart
-        </Button>
+      <div className="mt-8">
+        {!isInCart ? (
+             <Button onClick={handleAddToCart} disabled={maxAllowed <= 0} className="w-full text-xs sm:text-sm py-3 sm:py-4 h-auto font-black shadow-lg shadow-amber-900/10">
+                Add to Cart
+             </Button>
+        ) : (
+            <div className="flex items-center justify-between bg-black border border-amber-500/50 rounded-md p-1">
+                <button 
+                    onClick={decrement}
+                    className="w-12 h-10 flex items-center justify-center text-amber-500 hover:bg-amber-500/10 rounded transition-colors text-lg font-bold"
+                >
+                    −
+                </button>
+                <span className="font-black text-white text-lg">{quantityInCart}</span>
+                <button 
+                    onClick={increment}
+                    disabled={quantityInCart >= maxAllowed}
+                    className="w-12 h-10 flex items-center justify-center text-amber-500 hover:bg-amber-500/10 rounded transition-colors text-lg font-bold disabled:opacity-30 disabled:hover:bg-transparent"
+                >
+                    +
+                </button>
+            </div>
+        )}
       </div>
     </Card>
   );
