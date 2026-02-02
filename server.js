@@ -1,3 +1,4 @@
+
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -17,21 +18,9 @@ app.use(cors());
 app.use(express.json());
 
 // MongoDB Connection
-console.log('🔗 Attempting to connect to MongoDB...');
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log('✅ Connected to MongoDB Atlas'))
-  .catch(err => {
-    console.error('❌ MongoDB connection error:', err.message);
-    console.log('💡 TIP: Check your MONGODB_URI and IP whitelist in Atlas.');
-  });
-
-// Check if DB is connected
-const checkDbConnection = (req, res, next) => {
-  if (mongoose.connection.readyState !== 1) {
-    return res.status(503).json({ error: 'Database not ready. Status: ' + mongoose.connection.readyState });
-  }
-  next();
-};
+  .then(() => console.log('Connected to MongoDB Atlas'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // --- SCHEMAS ---
 const ComponentSchema = new mongoose.Schema({
@@ -64,31 +53,24 @@ const Request = mongoose.model('Request', RequestSchema);
 
 // --- API ROUTES ---
 
-// Health check to verify API is reachable
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
-});
-
-// Seed Logic
+// Initial seed if empty
 const seedDatabase = async () => {
-  try {
-    const count = await Component.countDocuments();
-    if (count === 0) {
-      const mock = [
-        { name: 'Arduino Uno', category: 'Modules', totalQuantity: 20, reservedQuantity: 0 },
-        { name: 'ESP32', category: 'Modules', totalQuantity: 15, reservedQuantity: 0 },
-        { name: 'DHT11 Sensor', category: 'Sensors', totalQuantity: 50, reservedQuantity: 0 },
-        { name: 'Servo Motor SG90', category: 'Modules', totalQuantity: 10, reservedQuantity: 0 }
-      ];
-      await Component.insertMany(mock);
-      console.log('🌱 Seeded default components.');
-    }
-  } catch (err) {}
+  const count = await Component.countDocuments();
+  if (count === 0) {
+    const mock = [
+      { name: 'Arduino Uno', category: 'Modules', totalQuantity: 20, reservedQuantity: 0 },
+      { name: 'ESP32', category: 'Modules', totalQuantity: 15, reservedQuantity: 0 },
+      { name: 'DHT11 Sensor', category: 'Sensors', totalQuantity: 50, reservedQuantity: 0 },
+      { name: 'Servo Motor SG90', category: 'Modules', totalQuantity: 10, reservedQuantity: 0 }
+    ];
+    await Component.insertMany(mock);
+    console.log('Database seeded with initial components');
+  }
 };
-setTimeout(seedDatabase, 2000);
+seedDatabase();
 
-// Fetch Inventory
-app.get('/api/inventory', checkDbConnection, async (req, res) => {
+// Get full inventory state
+app.get('/api/inventory', async (req, res) => {
   try {
     const [components, teams, requests] = await Promise.all([
       Component.find(),
@@ -96,6 +78,7 @@ app.get('/api/inventory', checkDbConnection, async (req, res) => {
       Request.find().populate('teamId').populate('items.componentId')
     ]);
 
+    // Map Mongo objects to frontend expectations
     const mappedRequests = requests.map(r => ({
       id: r._id,
       teamId: r.teamId?._id,
@@ -120,8 +103,8 @@ app.get('/api/inventory', checkDbConnection, async (req, res) => {
   }
 });
 
-// Login/Register
-app.post('/api/teams/login', checkDbConnection, async (req, res) => {
+// Auth / Register
+app.post('/api/teams/login', async (req, res) => {
   const { registrationNumber, teamName, leaderName } = req.body;
   try {
     let team = await Team.findOne({ registrationNumber: registrationNumber.toLowerCase() });
@@ -136,17 +119,25 @@ app.post('/api/teams/login', checkDbConnection, async (req, res) => {
 });
 
 // Submit Request
-app.post('/api/requests', checkDbConnection, async (req, res) => {
+app.post('/api/requests', async (req, res) => {
   const { teamId, cart } = req.body;
   try {
     const newRequest = new Request({
       teamId,
       status: 'PENDING_APPROVAL',
-      items: cart.map(item => ({ componentId: item.componentId, quantity: item.quantity }))
+      items: cart.map(item => ({
+        componentId: item.componentId,
+        quantity: item.quantity
+      }))
     });
+
+    // Update reserved quantities atomically
     for (const item of cart) {
-      await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: item.quantity } });
+      await Component.findByIdAndUpdate(item.componentId, {
+        $inc: { reservedQuantity: item.quantity }
+      });
     }
+
     await newRequest.save();
     res.json(newRequest);
   } catch (err) {
@@ -154,34 +145,45 @@ app.post('/api/requests', checkDbConnection, async (req, res) => {
   }
 });
 
-// Admin Updates
-app.patch('/api/requests/:id', checkDbConnection, async (req, res) => {
+// Update Request Status (Admin)
+app.patch('/api/requests/:id', async (req, res) => {
   const { id } = req.params;
   const { status, items, notes } = req.body;
   try {
     const oldRequest = await Request.findById(id);
-    if (!oldRequest) return res.status(404).json({ error: 'Not found' });
+    if (!oldRequest) return res.status(404).send('Request not found');
+
+    const originalStatus = oldRequest.status;
     
-    // Simplistic stock management
-    if (status === 'COLLECTED' && oldRequest.status !== 'COLLECTED') {
+    // Logic for stock adjustments
+    if (status === 'COLLECTED' && originalStatus !== 'COLLECTED') {
+      // Move from reserved to finalized deduction
       for (const item of oldRequest.items) {
-        await Component.findByIdAndUpdate(item.componentId, { $inc: { totalQuantity: -item.quantity, reservedQuantity: -item.quantity } });
+        await Component.findByIdAndUpdate(item.componentId, {
+          $inc: { totalQuantity: -item.quantity, reservedQuantity: -item.quantity }
+        });
       }
-    } else if (status === 'REJECTED' && oldRequest.status !== 'REJECTED' && oldRequest.status !== 'COLLECTED') {
+    } else if (status === 'REJECTED' && originalStatus !== 'REJECTED' && originalStatus !== 'COLLECTED') {
+      // Release reservation
       for (const item of oldRequest.items) {
-        await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: -item.quantity } });
+        await Component.findByIdAndUpdate(item.componentId, {
+          $inc: { reservedQuantity: -item.quantity }
+        });
       }
     }
 
-    const updated = await Request.findByIdAndUpdate(id, { status, notes }, { new: true });
+    const updated = await Request.findByIdAndUpdate(id, 
+      { status, notes, ...(items && { items: items.map(i => ({ componentId: i.componentId, quantity: i.quantity })) }) }, 
+      { new: true }
+    );
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Component Management
-app.put('/api/components', checkDbConnection, async (req, res) => {
+// Manage Components
+app.put('/api/components', async (req, res) => {
   const { id, name, category, totalQuantity } = req.body;
   try {
     let component;
@@ -197,13 +199,12 @@ app.put('/api/components', checkDbConnection, async (req, res) => {
   }
 });
 
-// Serve Frontend (last priority)
+// Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, 'dist')));
-  app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  });
 }
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server active on port ${PORT}`);
-  console.log(`📡 API available at http://localhost:${PORT}/api/inventory`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
