@@ -60,28 +60,28 @@ const InventoryManager: React.FC = () => {
           <table className="w-full text-left">
             <thead className="bg-black/40">
               <tr>
-                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Component Name</th>
-                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Category</th>
-                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Total Qty</th>
-                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Reserved</th>
-                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Actions</th>
+                <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Component Name</th>
+                <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Category</th>
+                <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Total Qty</th>
+                <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Reserved</th>
+                <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
               {components.map((c) => (
                 <tr key={c.id} className="hover:bg-amber-500/5 transition-colors group">
-                  <td className="p-4 font-black text-gray-100">{c.name}</td>
+                  <td className="p-4 font-black text-gray-100 text-xs md:text-base">{c.name}</td>
                   <td className="p-4">
-                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest border border-amber-900/40 px-2 py-0.5 rounded">
+                    <span className="text-[10px] md:text-xs font-bold text-amber-500 uppercase tracking-widest border border-amber-900/40 px-2 py-0.5 rounded">
                       {c.category}
                     </span>
                   </td>
-                  <td className="p-4 text-gray-300 font-mono text-xs">{c.totalQuantity}</td>
-                  <td className="p-4 text-gray-500 font-mono text-xs">{c.reservedQuantity}</td>
+                  <td className="p-4 text-gray-300 font-mono text-xs md:text-sm">{c.totalQuantity}</td>
+                  <td className="p-4 text-gray-500 font-mono text-xs md:text-sm">{c.reservedQuantity}</td>
                   <td className="p-4 text-right">
                     <button
                       onClick={() => openEditModal(c)}
-                      className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-amber-500 transition-colors"
+                      className="text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-400 hover:text-amber-500 transition-colors"
                     >
                       Edit
                     </button>

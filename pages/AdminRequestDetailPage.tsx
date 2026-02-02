@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import RequestDetailView from '../components/admin/RequestDetailView';
@@ -30,9 +29,13 @@ const AdminRequestDetailPage: React.FC = () => {
       </Link>
       <div className="mb-8">
         <h1 className="text-3xl font-black text-amber-500 uppercase italic tracking-tighter">Request Management</h1>
-        <p className="text-sm text-gray-500 uppercase tracking-widest mt-1">
-            Team: <span className="text-gray-100 font-black">{request.team.teamName}</span> • Reg: <span className="text-gray-100 font-black">{request.team.registrationNumber}</span>
-        </p>
+        <div className="text-sm md:text-base text-gray-500 uppercase tracking-widest mt-1">
+            <span className="block sm:inline">Team: <span className="text-gray-100 font-black">{request.team.teamName}</span></span>
+            <span className="hidden sm:inline mx-2">•</span>
+            <span className="block sm:inline">Leader: <span className="text-gray-100 font-black">{request.team.leaderName}</span></span>
+            <span className="hidden sm:inline mx-2">•</span>
+            <span className="block sm:inline">Reg: <span className="text-gray-100 font-black">{request.team.registrationNumber}</span></span>
+        </div>
       </div>
       <RequestDetailView request={request} />
     </div>

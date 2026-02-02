@@ -18,10 +18,11 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedComponentToAdd, setSelectedComponentToAdd] = useState<string>('');
 
+  // Only initialize state when the request ID changes, not on every background poll update
   useEffect(() => {
     setEditableItems(request.items.map(item => ({ componentId: item.componentId, quantity: item.quantity })));
     setNotes(request.notes || '');
-  }, [request]);
+  }, [request.id]);
 
   const handleQuantityChange = (componentId: string, delta: number) => {
     setEditableItems(items =>
@@ -82,8 +83,7 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
 
   const isActionable = request.status === RequestStatus.Pending || request.status === RequestStatus.Modified;
 
-  // Filter components available to add (excluding ones already in the original request to avoid duplicate rows, though logic handles it)
-  // Better: Show all components in dropdown.
+  // Filter components available to add
   const availableComponentsToAdd = components.filter(c => c.totalQuantity > 0);
 
   return (
@@ -92,10 +92,10 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
         <table className="w-full text-left">
           <thead className="border-b border-gray-800">
             <tr>
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Component</th>
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Requested</th>
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Adjusted Qty</th>
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Stock Status</th>
+              <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Component</th>
+              <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Requested</th>
+              <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Adjusted Qty</th>
+              <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Stock Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
@@ -115,10 +115,10 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
               return (
                 <tr key={item.componentId} className="hover:bg-amber-500/5 transition-colors">
                   <td className="p-4">
-                      <p className="font-bold text-gray-100">{component.name}</p>
-                      {!originalItem && <span className="text-[9px] text-amber-500 font-black uppercase tracking-widest">NEWLY ADDED</span>}
+                      <p className="font-bold text-gray-100 text-sm md:text-base">{component.name}</p>
+                      {!originalItem && <span className="text-[9px] md:text-[10px] text-amber-500 font-black uppercase tracking-widest">NEWLY ADDED</span>}
                   </td>
-                  <td className="p-4 text-gray-400 font-mono">{originalItem ? originalItem.quantity : '-'}</td>
+                  <td className="p-4 text-gray-400 font-mono text-sm md:text-base">{originalItem ? originalItem.quantity : '-'}</td>
                   <td className="p-4">
                     <div className="flex items-center space-x-2">
                          <button 
@@ -128,7 +128,7 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
                          >
                              -
                          </button>
-                         <span className="w-8 text-center font-black text-white">{item.quantity}</span>
+                         <span className="w-8 text-center font-black text-white text-sm md:text-base">{item.quantity}</span>
                          <button 
                             onClick={() => handleQuantityChange(item.componentId, 1)}
                             disabled={!isActionable || isLoading}
@@ -139,7 +139,7 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
                     </div>
                   </td>
                   <td className="p-4">
-                      <span className={`font-mono text-xs ${isStockIssue ? 'text-red-500 font-black' : 'text-gray-400'}`}>
+                      <span className={`font-mono text-xs md:text-sm ${isStockIssue ? 'text-red-500 font-black' : 'text-gray-400'}`}>
                           {trueAvailable} Available
                       </span>
                   </td>
@@ -153,11 +153,11 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
       {isActionable && (
         <div className="p-4 bg-black/20 border-t border-gray-800 flex flex-col sm:flex-row gap-4 items-end sm:items-center">
              <div className="flex-grow w-full sm:w-auto">
-                 <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Add Component to Request</label>
+                 <label className="block text-[10px] md:text-xs font-black text-gray-500 uppercase tracking-widest mb-2">Add Component to Request</label>
                  <select 
                     value={selectedComponentToAdd}
                     onChange={(e) => setSelectedComponentToAdd(e.target.value)}
-                    className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white text-xs focus:ring-1 focus:ring-amber-500 outline-none"
+                    className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white text-xs md:text-sm focus:ring-1 focus:ring-amber-500 outline-none"
                  >
                      <option value="">Select a component...</option>
                      {availableComponentsToAdd.map(c => (
@@ -178,13 +178,13 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
       
       {isActionable && (
         <div className="mt-6 px-4">
-            <label htmlFor="notes" className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Internal Admin Notes</label>
+            <label htmlFor="notes" className="block text-[10px] md:text-xs font-black text-gray-500 uppercase tracking-widest mb-2">Internal Admin Notes</label>
             <textarea
                 id="notes"
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="mt-1 block w-full px-4 py-3 bg-black border border-gray-800 rounded-md shadow-sm text-gray-300 placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-all"
+                className="mt-1 block w-full px-4 py-3 bg-black border border-gray-800 rounded-md shadow-sm text-gray-300 placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-all text-sm md:text-base"
                 placeholder="Briefly explain any modifications made to this request..."
                 disabled={isLoading}
             />

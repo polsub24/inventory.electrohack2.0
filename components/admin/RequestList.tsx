@@ -65,7 +65,7 @@ const RequestList: React.FC<RequestListProps> = ({ statuses, emptyMessage }) => 
 
 
   if (filteredRequests.length === 0) {
-    return <Card className="border border-gray-800 bg-gray-900/10 backdrop-blur-sm"><p className="text-center text-gray-500 py-12 uppercase tracking-widest text-[10px] sm:text-xs font-black">{emptyMessage}</p></Card>;
+    return <Card className="border border-gray-800 bg-gray-900/10 backdrop-blur-sm"><p className="text-center text-gray-500 py-12 uppercase tracking-widest text-[10px] sm:text-xs md:text-sm font-black">{emptyMessage}</p></Card>;
   }
 
   return (
@@ -74,11 +74,12 @@ const RequestList: React.FC<RequestListProps> = ({ statuses, emptyMessage }) => 
         <table className="w-full text-left min-w-[600px]">
           <thead className="bg-black/40">
             <tr>
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Team Name</th>
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Reg #</th>
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Time</th>
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Status</th>
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-gray-500"></th>
+              <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Team Name</th>
+              <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Leader</th>
+              <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Reg #</th>
+              <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Time</th>
+              <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Status</th>
+              <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
@@ -88,14 +89,15 @@ const RequestList: React.FC<RequestListProps> = ({ statuses, emptyMessage }) => 
                 ref={rowRefs.current.get(req.id)}
                 className={`transition-colors duration-500 ${newRequestIds.has(req.id) ? 'bg-amber-500/20' : 'hover:bg-amber-500/5 group'}`}
               >
-                <td className="p-4 font-black text-gray-100">{req.team.teamName}</td>
-                <td className="p-4 text-gray-400 font-mono text-xs uppercase">{req.team.registrationNumber}</td>
-                <td className="p-4 text-gray-400 text-xs font-mono">{req.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                <td className="p-4 font-black text-gray-100 text-xs md:text-base">{req.team.teamName}</td>
+                <td className="p-4 text-gray-300 text-xs md:text-sm">{req.team.leaderName}</td>
+                <td className="p-4 text-gray-400 font-mono text-xs md:text-sm uppercase">{req.team.registrationNumber}</td>
+                <td className="p-4 text-gray-400 text-xs md:text-sm font-mono">{req.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                 <td className="p-4"><StatusBadge status={req.status} /></td>
                 <td className="p-4 text-right">
                   <button
                     onClick={() => navigate(`/admin/request/${req.id}`)}
-                    className="text-[10px] font-black uppercase tracking-widest text-amber-500 hover:text-white border border-amber-500/30 hover:bg-amber-500 px-3 py-1.5 rounded transition-all"
+                    className="text-[10px] md:text-xs font-black uppercase tracking-widest text-amber-500 hover:text-white border border-amber-500/30 hover:bg-amber-500 px-3 py-1.5 md:px-4 md:py-2 rounded transition-all"
                   >
                     Manage
                   </button>

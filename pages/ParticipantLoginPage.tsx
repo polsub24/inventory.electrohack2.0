@@ -62,7 +62,7 @@ const ParticipantLoginPage: React.FC = () => {
             />
           </div>
           <div>
-            <label htmlFor="regNum" className="block text-sm font-medium text-gray-400 uppercase tracking-widest">Registration #</label>
+            <label htmlFor="regNum" className="block text-sm font-medium text-gray-400 uppercase tracking-widest">Registration Number</label>
             <input
               id="regNum"
               type="text"
