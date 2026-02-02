@@ -1,8 +1,7 @@
-
 import React from 'react';
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'danger';
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
 };
 
@@ -13,18 +12,19 @@ const Button: React.FC<ButtonProps> = ({
   size = 'md',
   ...props
 }) => {
-  const baseClasses = 'font-bold rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition ease-in-out duration-150 uppercase tracking-wider';
+  const baseClasses = 'relative inline-flex items-center justify-center font-bold tracking-wider uppercase rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]';
 
   const sizeClasses = {
-    sm: 'py-1.5 px-3 text-xs',
-    md: 'py-2 px-4 text-sm',
-    lg: 'py-3 px-6 text-base',
+    sm: 'py-2 px-3 text-[10px] leading-4',
+    md: 'py-2.5 px-5 text-xs',
+    lg: 'py-4 px-8 text-sm',
   };
 
   const variantClasses = {
-    primary: 'bg-amber-500 text-black hover:bg-amber-400 focus:ring-amber-500',
-    secondary: 'bg-gray-700 text-amber-400 border border-amber-900/50 hover:bg-gray-600 focus:ring-amber-500',
-    danger: 'bg-red-900/80 text-white hover:bg-red-800 focus:ring-red-500 border border-red-500/20',
+    primary: 'bg-amber-500 text-black hover:bg-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] border border-amber-400',
+    secondary: 'bg-white/5 text-gray-200 hover:bg-white/10 hover:text-white border border-white/10 backdrop-blur-sm',
+    danger: 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40',
+    ghost: 'bg-transparent text-gray-400 hover:text-amber-500 hover:bg-amber-500/5',
   };
 
   return (
