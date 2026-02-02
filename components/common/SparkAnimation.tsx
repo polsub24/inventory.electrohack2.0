@@ -7,7 +7,7 @@ interface SparkAnimationProps {
 }
 
 const generateSparkPaths = () => {
-    const paths = [];
+    const paths: string[] = [];
     const numLines = 7;
     for (let i = 0; i < numLines; i++) {
         const angle = (i / numLines) * 2 * Math.PI;
