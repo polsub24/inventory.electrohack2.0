@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React from 'react';
 import { Component, CartItem } from '../../types';
 import Card from '../common/Card';
 import Button from '../common/Button';
@@ -11,17 +12,16 @@ interface ComponentCardProps {
 }
 
 const ComponentCard: React.FC<ComponentCardProps> = ({ component, cart, addToCart, updateCartItemQuantity }) => {
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = React.useState(1);
   const availableQuantity = component.totalQuantity - component.reservedQuantity;
-  const [highlightClass, setHighlightClass] = useState('');
-  // FIX: Initialize useRef with `undefined` to satisfy the requirement of providing an initial value.
-  const prevAvailableQuantityRef = useRef<number | undefined>(undefined);
+  const [highlightClass, setHighlightClass] = React.useState('');
+  const prevAvailableQuantityRef = React.useRef<number | undefined>(undefined);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const prevQty = prevAvailableQuantityRef.current;
     if (prevQty !== undefined && prevQty !== availableQuantity) {
         setHighlightClass('highlight-pulse');
-        const timer = setTimeout(() => setHighlightClass(''), 1000); // Must match animation duration
+        const timer = setTimeout(() => setHighlightClass(''), 1000);
         return () => clearTimeout(timer);
     }
     prevAvailableQuantityRef.current = availableQuantity;

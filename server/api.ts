@@ -1,7 +1,16 @@
-
 import { Component, Team, Request, CartItem, RequestStatus } from '../types';
 
-const BASE_URL = ''; // Relative path because we serve from same origin on Render
+const BASE_URL = ''; // This is correct for proxy in dev and same-origin in prod
+
+// Helper to create descriptive error messages from fetch responses
+const createApiError = async (response: Response, defaultMessage: string): Promise<Error> => {
+    try {
+        const errorData = await response.json();
+        return new Error(errorData.error || `${defaultMessage} (Status: ${response.status})`);
+    } catch {
+        return new Error(`${defaultMessage} (Status: ${response.status})`);
+    }
+};
 
 const api = {
   // --- AUTH ---
@@ -11,14 +20,14 @@ const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(teamData),
     });
-    if (!response.ok) throw new Error('Login failed');
+    if (!response.ok) throw await createApiError(response, 'Login failed');
     return response.json();
   },
 
   // --- DATA FETCHING ---
   async getInventoryData(): Promise<{ components: Component[], teams: Team[], requests: Request[] }> {
     const response = await fetch(`${BASE_URL}/api/inventory`);
-    if (!response.ok) throw new Error('Failed to fetch inventory');
+    if (!response.ok) throw await createApiError(response, 'Failed to fetch inventory data');
     const data = await response.json();
     
     // Map dates and ensure IDs are strings
@@ -26,13 +35,14 @@ const api = {
       ...data,
       requests: data.requests.map((r: any) => ({
         ...r,
+        id: r.id || r._id,
         timestamp: new Date(r.timestamp),
         items: r.items.map((i: any) => ({
             ...i,
-            component: i.component ? { ...i.component, id: i.component._id } : null
+            component: i.component ? { ...i.component, id: i.component._id || i.component.id } : null
         }))
       })),
-      components: data.components.map((c: any) => ({ ...c, id: c._id }))
+      components: data.components.map((c: any) => ({ ...c, id: c._id || c.id }))
     };
   },
 
@@ -43,7 +53,7 @@ const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ teamId, cart }),
     });
-    if (!response.ok) throw new Error('Request submission failed');
+    if (!response.ok) throw await createApiError(response, 'Request submission failed');
     return response.json();
   },
 
@@ -54,7 +64,7 @@ const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status, items, notes }),
     });
-    if (!response.ok) throw new Error('Failed to update request');
+    if (!response.ok) throw await createApiError(response, 'Failed to update request');
     return response.json();
   },
 
@@ -64,7 +74,7 @@ const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(componentData),
     });
-    if (!response.ok) throw new Error('Failed to upsert component');
+    if (!response.ok) throw await createApiError(response, 'Failed to save component');
     return response.json();
   }
 };

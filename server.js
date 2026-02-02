@@ -1,4 +1,3 @@
-
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -18,9 +17,22 @@ app.use(cors());
 app.use(express.json());
 
 // MongoDB Connection
+console.log('🔗 Attempting to connect to MongoDB...');
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB Atlas'))
-  .catch(err => console.error('MongoDB connection error:', err));
+  .then(() => console.log('✅ Connected to MongoDB Atlas'))
+  .catch(err => {
+    console.error('❌ MongoDB connection error:', err.message);
+    console.log('💡 TIP: Check your MONGODB_URI and IP whitelist in Atlas.');
+  });
+
+// Middleware to check DB connection status before handling requests
+const checkDbConnection = (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) { // 1 = connected
+    return res.status(503).json({ error: `Database not ready. Status code: ${mongoose.connection.readyState}` });
+  }
+  next();
+};
+
 
 // --- SCHEMAS ---
 const ComponentSchema = new mongoose.Schema({
@@ -53,24 +65,43 @@ const Request = mongoose.model('Request', RequestSchema);
 
 // --- API ROUTES ---
 
+// Health check to verify server and DB status
+app.get('/api/health', (req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const isConnected = dbState === 1;
+  res.status(isConnected ? 200 : 503).json({
+    status: 'ok',
+    database: {
+      connected: isConnected,
+      state: ['disconnected', 'connected', 'connecting', 'disconnecting'][dbState]
+    }
+  });
+});
+
+
 // Initial seed if empty
 const seedDatabase = async () => {
-  const count = await Component.countDocuments();
-  if (count === 0) {
-    const mock = [
-      { name: 'Arduino Uno', category: 'Modules', totalQuantity: 20, reservedQuantity: 0 },
-      { name: 'ESP32', category: 'Modules', totalQuantity: 15, reservedQuantity: 0 },
-      { name: 'DHT11 Sensor', category: 'Sensors', totalQuantity: 50, reservedQuantity: 0 },
-      { name: 'Servo Motor SG90', category: 'Modules', totalQuantity: 10, reservedQuantity: 0 }
-    ];
-    await Component.insertMany(mock);
-    console.log('Database seeded with initial components');
+  try {
+    const count = await Component.countDocuments();
+    if (count === 0) {
+      const mock = [
+        { name: 'Arduino Uno', category: 'Modules', totalQuantity: 20, reservedQuantity: 0 },
+        { name: 'ESP32', category: 'Modules', totalQuantity: 15, reservedQuantity: 0 },
+        { name: 'DHT11 Sensor', category: 'Sensors', totalQuantity: 50, reservedQuantity: 0 },
+        { name: 'Servo Motor SG90', category: 'Modules', totalQuantity: 10, reservedQuantity: 0 }
+      ];
+      await Component.insertMany(mock);
+      console.log('🌱 Database seeded with initial components');
+    }
+  } catch (err) {
+      console.error("Seeding failed. This may be okay if another instance is already seeding.", err.message);
   }
 };
-seedDatabase();
+// Wait a moment for DB connection before attempting to seed
+setTimeout(seedDatabase, 2000);
 
 // Get full inventory state
-app.get('/api/inventory', async (req, res) => {
+app.get('/api/inventory', checkDbConnection, async (req, res) => {
   try {
     const [components, teams, requests] = await Promise.all([
       Component.find(),
@@ -104,7 +135,7 @@ app.get('/api/inventory', async (req, res) => {
 });
 
 // Auth / Register
-app.post('/api/teams/login', async (req, res) => {
+app.post('/api/teams/login', checkDbConnection, async (req, res) => {
   const { registrationNumber, teamName, leaderName } = req.body;
   try {
     let team = await Team.findOne({ registrationNumber: registrationNumber.toLowerCase() });
@@ -119,7 +150,7 @@ app.post('/api/teams/login', async (req, res) => {
 });
 
 // Submit Request
-app.post('/api/requests', async (req, res) => {
+app.post('/api/requests', checkDbConnection, async (req, res) => {
   const { teamId, cart } = req.body;
   try {
     const newRequest = new Request({
@@ -146,7 +177,7 @@ app.post('/api/requests', async (req, res) => {
 });
 
 // Update Request Status (Admin)
-app.patch('/api/requests/:id', async (req, res) => {
+app.patch('/api/requests/:id', checkDbConnection, async (req, res) => {
   const { id } = req.params;
   const { status, items, notes } = req.body;
   try {
@@ -183,7 +214,7 @@ app.patch('/api/requests/:id', async (req, res) => {
 });
 
 // Manage Components
-app.put('/api/components', async (req, res) => {
+app.put('/api/components', checkDbConnection, async (req, res) => {
   const { id, name, category, totalQuantity } = req.body;
   try {
     let component;
@@ -207,4 +238,4 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
