@@ -18,7 +18,7 @@ const Header: React.FC = () => {
   const Logo = () => (
     <div className="flex items-center gap-3 sm:gap-4 group">
       <img 
-        src="/logo-new.jpg" 
+        src="/assets/logo-new.jpg" 
         alt="Electrohack 2.0 Logo" 
         className="h-10 w-10 object-contain transition-transform duration-300 group-hover:scale-110 rounded-md" 
       />
