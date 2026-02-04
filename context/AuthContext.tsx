@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   registerParticipant: (teamData: { teamName: string; leaderName: string; registrationNumber: string; }) => Promise<Team>;
-  loginParticipant: (registrationNumber: string) => Promise<Team>;
+  loginParticipant: (teamName: string) => Promise<Team>;
   loginAdmin: () => void;
   logout: () => void;
 }
@@ -58,10 +58,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
   }, []);
 
-  const loginParticipant = useCallback(async (registrationNumber: string) => {
+  const loginParticipant = useCallback(async (teamName: string) => {
       setIsLoading(true);
       try {
-          const team = await api.loginTeam(registrationNumber);
+          const team = await api.loginTeam(teamName);
           const participantUser: User = {
               id: team.id,
               name: `${team.teamName} (${team.leaderName})`,

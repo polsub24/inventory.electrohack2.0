@@ -7,24 +7,24 @@ import Spinner from '../components/common/Spinner';
 import InputField from '../components/common/InputField';
 
 const ParticipantLoginPage: React.FC = () => {
-  const [regNum, setRegNum] = useState('');
+  const [teamName, setTeamName] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { loginParticipant, isLoading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regNum) {
-      setError('Registration Number is required.');
+    if (!teamName) {
+      setError('Team Name is required.');
       return;
     }
     setError('');
 
     try {
-      await loginParticipant(regNum);
+      await loginParticipant(teamName);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your registration number.');
+      setError(err.message || 'Login failed. Please check your team name.');
     }
   };
 
@@ -43,11 +43,11 @@ const ParticipantLoginPage: React.FC = () => {
         
         <form onSubmit={handleSubmit} className="space-y-5">
           <InputField 
-            id="regNum" 
-            label="Registration Number" 
-            value={regNum} 
-            onChange={(e) => setRegNum(e.target.value)} 
-            placeholder="e.g. REG-2024-001"
+            id="teamName" 
+            label="Team Name" 
+            value={teamName} 
+            onChange={(e) => setTeamName(e.target.value)} 
+            placeholder="e.g. RoboTitans"
             disabled={isLoading}
           />
           

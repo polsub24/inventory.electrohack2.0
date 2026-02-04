@@ -43,7 +43,7 @@ const ComponentSchema = new mongoose.Schema({
 });
 
 const TeamSchema = new mongoose.Schema({
-  teamName: { type: String, required: true },
+  teamName: { type: String, required: true, unique: true },
   leaderName: { type: String, required: true },
   registrationNumber: { type: String, required: true, unique: true }
 });
@@ -177,22 +177,32 @@ app.post('/api/teams/register', checkDbConnection, async (req, res) => {
   }
 
   try {
-    const existingTeam = await Team.findOne({ registrationNumber: registrationNumber.toLowerCase() });
-    if (existingTeam) {
+    const existingTeamByName = await Team.findOne({ teamName: { $regex: new RegExp(`^${teamName.trim()}$`, 'i') } });
+    if (existingTeamByName) {
+      return res.status(409).json({ error: 'This team name is already taken.' });
+    }
+    
+    const existingTeamByReg = await Team.findOne({ registrationNumber: { $regex: new RegExp(`^${registrationNumber.trim()}$`, 'i') } });
+    if (existingTeamByReg) {
       return res.status(409).json({ error: 'This registration number is already in use.' });
     }
     
     const newTeam = new Team({ 
-        teamName, 
-        leaderName, 
-        registrationNumber: registrationNumber.toLowerCase() 
+        teamName: teamName.trim(), 
+        leaderName: leaderName.trim(), 
+        registrationNumber: registrationNumber.trim()
     });
     await newTeam.save();
 
     res.status(201).json({ ...newTeam.toObject(), id: newTeam._id });
   } catch (err) {
       if (err.code === 11000) { // Mongoose duplicate key error
-          return res.status(409).json({ error: 'This registration number is already in use.' });
+          if (err.message.includes('teamName')) {
+             return res.status(409).json({ error: 'This team name is already in use.' });
+          }
+          if (err.message.includes('registrationNumber')) {
+            return res.status(409).json({ error: 'This registration number is already in use.' });
+          }
       }
       res.status(500).json({ error: err.message });
   }
@@ -201,12 +211,12 @@ app.post('/api/teams/register', checkDbConnection, async (req, res) => {
 
 // Team Login
 app.post('/api/teams/login', checkDbConnection, async (req, res) => {
-  const { registrationNumber } = req.body;
-  if (!registrationNumber) {
-      return res.status(400).json({ error: 'Registration number is required.' });
+  const { teamName } = req.body;
+  if (!teamName) {
+      return res.status(400).json({ error: 'Team name is required.' });
   }
   try {
-    const team = await Team.findOne({ registrationNumber: registrationNumber.toLowerCase() });
+    const team = await Team.findOne({ teamName: { $regex: new RegExp(`^${teamName.trim()}$`, 'i') } });
     if (!team) {
       return res.status(404).json({ error: 'Team not found. Please register first.' });
     }

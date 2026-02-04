@@ -24,11 +24,11 @@ const api = {
     return response.json();
   },
 
-  async loginTeam(registrationNumber: string): Promise<Team> {
+  async loginTeam(teamName: string): Promise<Team> {
     const response = await fetch(`${BASE_URL}/api/teams/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ registrationNumber }),
+      body: JSON.stringify({ teamName }),
     });
     if (!response.ok) throw await createApiError(response, 'Login failed');
     return response.json();
