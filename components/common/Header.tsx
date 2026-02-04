@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
 import Button from './Button';
@@ -7,6 +7,7 @@ import Button from './Button';
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     const isParticipant = user?.role === UserRole.Participant;
@@ -72,8 +73,26 @@ const Header: React.FC = () => {
               </>
             ) : (
                 <div className="flex items-center gap-3">
-                    <Link to="/participant-login" className="text-xs font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-wider hidden sm:block">Participant Access</Link>
-                    <Link to="/admin-login" className="text-xs font-bold text-amber-500 hover:text-amber-400 transition-colors uppercase tracking-wider hidden sm:block">Admin Console</Link>
+                    <Link 
+                        to="/participant-login" 
+                        className={`text-xs font-bold transition-colors uppercase tracking-wider hidden sm:block ${
+                            location.pathname.startsWith('/participant-') 
+                            ? 'text-amber-500' 
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                    >
+                        Participant Access
+                    </Link>
+                    <Link 
+                        to="/admin-login" 
+                        className={`text-xs font-bold transition-colors uppercase tracking-wider hidden sm:block ${
+                            location.pathname === '/admin-login'
+                            ? 'text-amber-500' 
+                            : 'text-gray-400 hover:text-amber-400'
+                        }`}
+                    >
+                        Admin Console
+                    </Link>
                     
                     {/* Mobile Only simplified nav */}
                     <Button onClick={() => navigate('/participant-login')} size="sm" className="sm:hidden">Login</Button>
