@@ -14,14 +14,16 @@ const Header: React.FC = () => {
     logout();
     navigate(isParticipant ? '/participant-login' : '/admin-login');
   };
+  
+  const logoSrc = "/assets/logo-new.jpg";
 
   const Logo = () => (
     <div className="flex items-center gap-3 sm:gap-4 group">
-      <img
-        src="/assets/logo-new.jpeg"
+       <img 
+        src={logoSrc}
         alt="Electrohack 2.0 Logo"
-        className="h-10 w-10 object-cover rounded-md transition-transform duration-300 group-hover:scale-110"
-      />
+        className="h-10 w-10 transition-transform duration-300 group-hover:scale-110 rounded-lg bg-gray-900 p-1"
+       />
       <div className="flex flex-col justify-center">
         <span className="text-base sm:text-xl font-black text-white tracking-tight leading-none group-hover:text-amber-500 transition-colors uppercase italic">
           Electrohack <span className="text-amber-500">2.0</span>
