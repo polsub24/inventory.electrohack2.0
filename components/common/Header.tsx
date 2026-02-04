@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
 import Button from './Button';
 
+const logoDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAAJYCAYAAAAYEDb1AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAEnQAABJ0Ad5mH3gAAP+JRefUeF7svQeUVEV55/kzu9u9l+xFlhBFUREs2GvEsWANO4qJxqhxYoxBE40Rj9FjTDxETIyJJBrzHjPGGBfGsWAPWLCIiKgIskEWsiXZ3V2n+ad7pqenp6cH2d0Fwfc8qrpndmZnpq86vVdVVT/4wy+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8.jpg";
+
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -17,28 +19,11 @@ const Header: React.FC = () => {
 
   const Logo = () => (
     <div className="flex items-center gap-3 sm:gap-4 group">
-      {/* 
-        TO USE AN IMAGE LOGO INSTEAD OF THE SVG:
-        1. Add your logo file to the 'public' folder (e.g., public/logo.png).
-        2. Uncomment the line below and remove the <div className="relative...">...</div> block.
-      */}
-      {/* <img src="/logo.png" alt="Logo" className="h-10 w-10 object-contain" /> */}
-
-      <div className="relative h-8 w-8 sm:h-10 sm:w-10 transition-transform duration-300 group-hover:scale-110">
-        <svg viewBox="0 0 24 24" className="h-full w-full drop-shadow-[0_0_8px_rgba(212,175,55,0.5)]" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            {/* Microchip Icon */}
-            <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
-            <rect x="9" y="9" width="6" height="6" />
-            <line x1="9" y1="1" x2="9" y2="4" />
-            <line x1="15" y1="1" x2="15" y2="4" />
-            <line x1="9" y1="20" x2="9" y2="23" />
-            <line x1="15" y1="20" x2="15" y2="23" />
-            <line x1="20" y1="9" x2="23" y2="9" />
-            <line x1="20" y1="14" x2="23" y2="14" />
-            <line x1="1" y1="9" x2="4" y2="9" />
-            <line x1="1" y1="14" x2="4" y2="14" />
-        </svg>
-      </div>
+      <img 
+        src={logoDataUrl} 
+        alt="Electrohack 2.0 Logo" 
+        className="h-10 w-10 object-contain transition-transform duration-300 group-hover:scale-110 rounded-md" 
+      />
       <div className="flex flex-col justify-center">
         <span className="text-base sm:text-xl font-black text-white tracking-tight leading-none group-hover:text-amber-500 transition-colors uppercase italic">
           Electrohack <span className="text-amber-500">2.0</span>
