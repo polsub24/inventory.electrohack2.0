@@ -4,8 +4,6 @@ import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
 import Button from './Button';
 
-const logoDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAAJYCAYAAAAYEDb1AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAEnQAABJ0Ad5mH3gAAP+JRefUeF7svQeUVEV55/kzu9u9l+xFlhBFUREs2GvEsWANO4qJxqhxYoxBE40Rj9FjTDxETIyJJBrzHjPGGBfGsWAPWLCIiKgIskEWsiXZ3V2n+ad7pqenp6cH2d0Fwfc8qrpndmZnpq86vVdVVT/4wy+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8wS+8.jpg";
-
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -20,7 +18,7 @@ const Header: React.FC = () => {
   const Logo = () => (
     <div className="flex items-center gap-3 sm:gap-4 group">
       <img 
-        src={logoDataUrl} 
+        src="/logo-new.jpg" 
         alt="Electrohack 2.0 Logo" 
         className="h-10 w-10 object-contain transition-transform duration-300 group-hover:scale-110 rounded-md" 
       />
