@@ -17,10 +17,10 @@ const Header: React.FC = () => {
 
   const Logo = () => (
     <div className="flex items-center gap-3 sm:gap-4 group">
-      <img 
-        src="/assets/logo-new.jpg" 
-        alt="Electrohack 2.0 Logo" 
-        className="h-10 w-10 object-contain transition-transform duration-300 group-hover:scale-110 rounded-md" 
+      <img
+        src="/assets/logo-new.jpeg"
+        alt="Electrohack 2.0 Logo"
+        className="h-10 w-10 object-cover rounded-md transition-transform duration-300 group-hover:scale-110"
       />
       <div className="flex flex-col justify-center">
         <span className="text-base sm:text-xl font-black text-white tracking-tight leading-none group-hover:text-amber-500 transition-colors uppercase italic">
