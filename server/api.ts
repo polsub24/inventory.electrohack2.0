@@ -14,11 +14,21 @@ const createApiError = async (response: Response, defaultMessage: string): Promi
 
 const api = {
   // --- AUTH ---
-  async loginOrRegisterTeam(teamData: { teamName: string; leaderName: string; registrationNumber: string }): Promise<Team> {
-    const response = await fetch(`${BASE_URL}/api/teams/login`, {
+  async registerTeam(teamData: { teamName: string; leaderName: string; registrationNumber: string }): Promise<Team> {
+    const response = await fetch(`${BASE_URL}/api/teams/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(teamData),
+    });
+    if (!response.ok) throw await createApiError(response, 'Registration failed');
+    return response.json();
+  },
+
+  async loginTeam(registrationNumber: string): Promise<Team> {
+    const response = await fetch(`${BASE_URL}/api/teams/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ registrationNumber }),
     });
     if (!response.ok) throw await createApiError(response, 'Login failed');
     return response.json();

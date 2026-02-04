@@ -15,48 +15,68 @@ const Header: React.FC = () => {
   };
 
   const Logo = () => (
-    <div className="flex items-center space-x-2 sm:space-x-3 group">
-      <div className="relative h-9 w-9 sm:h-11 sm:w-11">
-        <svg viewBox="0 0 100 100" className="h-full w-full">
-            <path 
-                d="M50 10 L58 10 L60 20 A30 30 0 0 1 70 24 L80 16 L86 22 L78 32 A30 30 0 0 1 82 42 L92 44 L92 52 L82 54 A30 30 0 0 1 78 64 L86 74 L80 80 L70 72 A30 30 0 0 1 60 76 L58 86 L50 86 L48 76 A30 30 0 0 1 38 72 L28 80 L22 74 L30 64 A30 30 0 0 1 26 54 L16 52 L16 44 L26 42 A30 30 0 0 1 30 32 L22 22 L28 16 L38 24 A30 30 0 0 1 48 20 Z" 
-                fill="none" 
-                stroke="#d4af37" 
-                strokeWidth="5"
-            />
-            <circle cx="50" cy="50" r="18" fill="#d4af37" fillOpacity="0.2" stroke="#d4af37" strokeWidth="2" />
-            <text x="50" y="56" textAnchor="middle" fill="#d4af37" fontSize="18" fontWeight="900">2.0</text>
+    <div className="flex items-center gap-3 sm:gap-4 group">
+      {/* 
+        TO USE AN IMAGE LOGO INSTEAD OF THE SVG:
+        1. Add your logo file to the 'public' folder (e.g., public/logo.png).
+        2. Uncomment the line below and remove the <div className="relative...">...</div> block.
+      */}
+      {/* <img src="/logo.png" alt="Logo" className="h-10 w-10 object-contain" /> */}
+
+      <div className="relative h-8 w-8 sm:h-10 sm:w-10 transition-transform duration-300 group-hover:scale-110">
+        <svg viewBox="0 0 24 24" className="h-full w-full drop-shadow-[0_0_8px_rgba(212,175,55,0.5)]" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            {/* Microchip Icon */}
+            <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+            <rect x="9" y="9" width="6" height="6" />
+            <line x1="9" y1="1" x2="9" y2="4" />
+            <line x1="15" y1="1" x2="15" y2="4" />
+            <line x1="9" y1="20" x2="9" y2="23" />
+            <line x1="15" y1="20" x2="15" y2="23" />
+            <line x1="20" y1="9" x2="23" y2="9" />
+            <line x1="20" y1="14" x2="23" y2="14" />
+            <line x1="1" y1="9" x2="4" y2="9" />
+            <line x1="1" y1="14" x2="4" y2="14" />
         </svg>
       </div>
-      <div className="flex flex-col">
-        <span className="text-sm sm:text-2xl font-black text-white tracking-tighter leading-none group-hover:text-amber-500 transition-colors uppercase italic">ELECTROHACK <span className="text-amber-500">2.0</span></span>
-        <span className="text-[6px] sm:text-[9px] uppercase tracking-[0.2em] sm:tracking-[0.4em] text-gray-500 font-bold leading-none mt-1">Plug into Innovation</span>
+      <div className="flex flex-col justify-center">
+        <span className="text-base sm:text-xl font-black text-white tracking-tight leading-none group-hover:text-amber-500 transition-colors uppercase italic">
+          Electrohack <span className="text-amber-500">2.0</span>
+        </span>
+        <span className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-bold leading-none mt-1">Inventory System</span>
       </div>
     </div>
   );
 
   return (
-    <header className="bg-black/85 border-b border-amber-900/40 backdrop-blur-xl shadow-2xl sticky top-0 z-40">
+    <header className="fixed top-0 w-full z-50 bg-[#050505]/80 backdrop-blur-xl border-b border-white/5 transition-all duration-300">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-24">
-          <Link to="/" className="flex items-center">
+        <div className="flex items-center justify-between h-16 sm:h-20">
+          <Link to="/" className="flex items-center focus:outline-none rounded-lg focus:ring-2 focus:ring-amber-500/50">
             <Logo />
           </Link>
-          <div className="flex items-center space-x-2 sm:space-x-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {user ? (
               <>
-                <div className="hidden sm:flex flex-col items-end mr-2">
-                  <span className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Active session</span>
-                  <span className="text-xs text-amber-500 font-black">{user.name}</span>
+                <div className="hidden sm:flex flex-col items-end mr-2 text-right">
+                  <span className="text-[9px] text-gray-500 uppercase font-black tracking-widest">Logged in as</span>
+                  <span className="text-xs text-white font-bold max-w-[150px] truncate">{user.name}</span>
                 </div>
-                <Button onClick={handleLogout} variant="danger" size="sm" className="!bg-transparent border border-red-900/50 text-red-500 hover:bg-red-950 px-3 sm:px-5">
+                <Button onClick={handleLogout} variant="danger" size="sm" className="hidden sm:inline-flex">
                   Logout
+                </Button>
+                <Button onClick={handleLogout} variant="danger" size="sm" className="sm:hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
                 </Button>
               </>
             ) : (
-                <div className="flex items-center space-x-2">
-                    <Button onClick={() => navigate('/participant-login')} size="sm" className="bg-amber-600 hover:bg-amber-500 text-black font-black text-[10px] sm:text-xs h-9 sm:h-11 px-3 sm:px-6">TEAM</Button>
-                    <Button onClick={() => navigate('/admin-login')} size="sm" variant="secondary" className="text-[10px] sm:text-xs h-9 sm:h-11 px-3 sm:px-6">STAFF</Button>
+                <div className="flex items-center gap-3">
+                    <Link to="/participant-login" className="text-xs font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-wider hidden sm:block">Participant Access</Link>
+                    <Link to="/admin-login" className="text-xs font-bold text-amber-500 hover:text-amber-400 transition-colors uppercase tracking-wider hidden sm:block">Admin Console</Link>
+                    
+                    {/* Mobile Only simplified nav */}
+                    <Button onClick={() => navigate('/participant-login')} size="sm" className="sm:hidden">Login</Button>
                 </div>
             )}
           </div>

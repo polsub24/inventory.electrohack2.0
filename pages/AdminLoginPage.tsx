@@ -1,9 +1,13 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
+
+// --- CONFIGURATION ---
+// CHANGE YOUR ADMIN PASSWORD HERE
+const ADMIN_SECRET = 'electrohack2025'; 
+// ---------------------
 
 const AdminLoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
@@ -13,7 +17,7 @@ const AdminLoginPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'admin123') {
+    if (password === ADMIN_SECRET) {
       loginAdmin();
       navigate('/admin');
     } else {

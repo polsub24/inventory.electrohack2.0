@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { InventoryProvider } from './context/InventoryContext';
 import { AnimationProvider } from './context/AnimationContext';
 import ParticipantLoginPage from './pages/ParticipantLoginPage';
+import ParticipantRegisterPage from './pages/ParticipantRegisterPage';
 import ParticipantDashboardPage from './pages/ParticipantDashboardPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
@@ -38,6 +39,7 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/participant-login" element={!user ? <ParticipantLoginPage /> : <Navigate to="/dashboard" />} />
+      <Route path="/participant-register" element={!user ? <ParticipantRegisterPage /> : <Navigate to="/dashboard" />} />
       <Route path="/admin-login" element={!user ? <AdminLoginPage /> : <Navigate to="/admin" />} />
 
       {/* Participant Routes */}

@@ -5,7 +5,8 @@ import api from '../server/api';
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  loginParticipant: (teamData: { teamName: string; leaderName: string; registrationNumber: string; }) => Promise<Team>;
+  registerParticipant: (teamData: { teamName: string; leaderName: string; registrationNumber: string; }) => Promise<Team>;
+  loginParticipant: (registrationNumber: string) => Promise<Team>;
   loginAdmin: () => void;
   logout: () => void;
 }
@@ -38,10 +39,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [user]);
 
-  const loginParticipant = useCallback(async (teamData: { teamName: string; leaderName: string; registrationNumber: string; }) => {
+  const registerParticipant = useCallback(async (teamData: { teamName: string; leaderName: string; registrationNumber: string; }) => {
       setIsLoading(true);
       try {
-          const team = await api.loginOrRegisterTeam(teamData);
+          const team = await api.registerTeam(teamData);
+          const participantUser: User = {
+              id: team.id,
+              name: `${team.teamName} (${team.leaderName})`,
+              role: UserRole.Participant,
+          };
+          setUser(participantUser);
+          return team;
+      } catch (error) {
+          console.error("Participant registration failed", error);
+          throw error;
+      } finally {
+          setIsLoading(false);
+      }
+  }, []);
+
+  const loginParticipant = useCallback(async (registrationNumber: string) => {
+      setIsLoading(true);
+      try {
+          const team = await api.loginTeam(registrationNumber);
           const participantUser: User = {
               id: team.id,
               name: `${team.teamName} (${team.leaderName})`,
@@ -57,6 +77,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
   }, []);
 
+
   const loginAdmin = () => {
     const adminUser: User = {
       id: 'admin_user',
@@ -71,7 +92,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, loginParticipant, loginAdmin, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, registerParticipant, loginParticipant, loginAdmin, logout }}>
       {children}
     </AuthContext.Provider>
   );
