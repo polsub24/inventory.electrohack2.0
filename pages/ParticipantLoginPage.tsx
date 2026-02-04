@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Spinner from '../components/common/Spinner';
+import InputField from '../components/common/InputField';
 
 const ParticipantLoginPage: React.FC = () => {
   const [regNum, setRegNum] = useState('');
@@ -27,24 +28,6 @@ const ParticipantLoginPage: React.FC = () => {
     }
   };
 
-  const InputField = ({ id, label, value, onChange, placeholder }: any) => (
-      <div className="group">
-        <label htmlFor={id} className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 transition-colors group-focus-within:text-amber-500">{label}</label>
-        <div className="relative">
-            <input
-              id={id}
-              type="text"
-              value={value}
-              onChange={onChange}
-              className="block w-full pl-4 pr-3 py-3 bg-black/40 border border-white/10 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all text-sm font-medium"
-              placeholder={placeholder}
-              required
-              disabled={isLoading}
-            />
-        </div>
-      </div>
-  );
-
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
       <Card className="w-full max-w-md border-t-4 border-t-amber-500 shadow-2xl">
@@ -59,7 +42,14 @@ const ParticipantLoginPage: React.FC = () => {
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-5">
-          <InputField id="regNum" label="Registration Number" value={regNum} onChange={(e: any) => setRegNum(e.target.value)} placeholder="e.g. REG-2024-001" />
+          <InputField 
+            id="regNum" 
+            label="Registration Number" 
+            value={regNum} 
+            onChange={(e) => setRegNum(e.target.value)} 
+            placeholder="e.g. REG-2024-001"
+            disabled={isLoading}
+          />
           
           {error && (
             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-center">

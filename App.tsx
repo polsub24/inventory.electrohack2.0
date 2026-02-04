@@ -22,7 +22,7 @@ const App: React.FC = () => {
             <div className="min-h-screen flex flex-col relative overflow-hidden">
               <BackgroundLines />
               <Header />
-              <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 z-10">
+              <main className="flex-grow container mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-20 sm:pt-24 z-10">
                 <AppRoutes />
               </main>
             </div>
