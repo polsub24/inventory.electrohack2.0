@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
 import Button from './Button';
+import logoImage from '../../assets/logo-new.jpg';
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -14,16 +15,16 @@ const Header: React.FC = () => {
     logout();
     navigate(isParticipant ? '/participant-login' : '/admin-login');
   };
-  
-  const logoSrc = "/assets/logo-new.jpg";
+
+  const logoSrc = logoImage;
 
   const Logo = () => (
     <div className="flex items-center gap-3 sm:gap-4 group">
-       <img 
+      <img
         src={logoSrc}
         alt="Electrohack 2.0 Logo"
         className="h-10 w-10 transition-transform duration-300 group-hover:scale-110 rounded-lg bg-gray-900 p-1"
-       />
+      />
       <div className="flex flex-col justify-center">
         <span className="text-base sm:text-xl font-black text-white tracking-tight leading-none group-hover:text-amber-500 transition-colors uppercase italic">
           Electrohack <span className="text-amber-500">2.0</span>
@@ -55,31 +56,29 @@ const Header: React.FC = () => {
                 </Button>
               </>
             ) : (
-                <div className="flex items-center gap-3">
-                    <Link 
-                        to="/participant-login" 
-                        className={`text-xs font-bold transition-colors uppercase tracking-wider hidden sm:block ${
-                            location.pathname.startsWith('/participant-') 
-                            ? 'text-amber-500' 
-                            : 'text-gray-400 hover:text-white'
-                        }`}
-                    >
-                        Participant Access
-                    </Link>
-                    <Link 
-                        to="/admin-login" 
-                        className={`text-xs font-bold transition-colors uppercase tracking-wider hidden sm:block ${
-                            location.pathname === '/admin-login'
-                            ? 'text-amber-500' 
-                            : 'text-gray-400 hover:text-amber-400'
-                        }`}
-                    >
-                        Admin Console
-                    </Link>
-                    
-                    {/* Mobile Only simplified nav */}
-                    <Button onClick={() => navigate('/participant-login')} size="sm" className="sm:hidden">Login</Button>
-                </div>
+              <div className="flex items-center gap-3">
+                <Link
+                  to="/participant-login"
+                  className={`text-xs font-bold transition-colors uppercase tracking-wider hidden sm:block ${location.pathname.startsWith('/participant-')
+                    ? 'text-amber-500'
+                    : 'text-gray-400 hover:text-white'
+                    }`}
+                >
+                  Participant Access
+                </Link>
+                <Link
+                  to="/admin-login"
+                  className={`text-xs font-bold transition-colors uppercase tracking-wider hidden sm:block ${location.pathname === '/admin-login'
+                    ? 'text-amber-500'
+                    : 'text-gray-400 hover:text-amber-400'
+                    }`}
+                >
+                  Admin Console
+                </Link>
+
+                {/* Mobile Only simplified nav */}
+                <Button onClick={() => navigate('/participant-login')} size="sm" className="sm:hidden">Login</Button>
+              </div>
             )}
           </div>
         </div>
