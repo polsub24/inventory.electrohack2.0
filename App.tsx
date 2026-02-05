@@ -4,7 +4,6 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { InventoryProvider } from './context/InventoryContext';
 import { AnimationProvider } from './context/AnimationContext';
 import ParticipantLoginPage from './pages/ParticipantLoginPage';
-import ParticipantRegisterPage from './pages/ParticipantRegisterPage';
 import ParticipantDashboardPage from './pages/ParticipantDashboardPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
@@ -39,7 +38,6 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/participant-login" element={!user ? <ParticipantLoginPage /> : <Navigate to="/dashboard" />} />
-      <Route path="/participant-register" element={!user ? <ParticipantRegisterPage /> : <Navigate to="/dashboard" />} />
       <Route path="/admin-login" element={!user ? <AdminLoginPage /> : <Navigate to="/admin" />} />
 
       {/* Participant Routes */}
@@ -48,7 +46,7 @@ const AppRoutes: React.FC = () => {
       {/* Admin Routes */}
       <Route path="/admin" element={user && user.role === UserRole.Admin ? <AdminDashboardPage /> : <Navigate to="/admin-login" />} />
       <Route path="/admin/request/:id" element={user && user.role === UserRole.Admin ? <AdminRequestDetailPage /> : <Navigate to="/admin-login" />} />
-      
+
       <Route path="*" element={<Navigate to={user ? (user.role === UserRole.Admin ? "/admin" : "/dashboard") : "/participant-login"} />} />
     </Routes>
   );
