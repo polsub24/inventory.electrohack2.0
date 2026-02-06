@@ -15,6 +15,7 @@ export interface Team {
   teamName: string;
   leaderName: string;
   registrationNumber: string;
+  password?: string; // Only returned during registration
 }
 
 export enum ComponentCategory {

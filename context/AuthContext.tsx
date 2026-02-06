@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   registerParticipant: (teamData: { teamName: string; leaderName: string; registrationNumber: string; }) => Promise<Team>;
-  loginParticipant: (teamName: string) => Promise<Team>;
+  loginParticipant: (teamName: string, password: string) => Promise<Team>;
   loginAdmin: () => void;
   logout: () => void;
 }
@@ -40,41 +40,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [user]);
 
   const registerParticipant = useCallback(async (teamData: { teamName: string; leaderName: string; registrationNumber: string; }) => {
-      setIsLoading(true);
-      try {
-          const team = await api.registerTeam(teamData);
-          const participantUser: User = {
-              id: team.id,
-              name: `${team.teamName} (${team.leaderName})`,
-              role: UserRole.Participant,
-          };
-          setUser(participantUser);
-          return team;
-      } catch (error) {
-          console.error("Participant registration failed", error);
-          throw error;
-      } finally {
-          setIsLoading(false);
-      }
+    setIsLoading(true);
+    try {
+      const team = await api.registerTeam(teamData);
+      const participantUser: User = {
+        id: team.id,
+        name: `${team.teamName} (${team.leaderName})`,
+        role: UserRole.Participant,
+      };
+      setUser(participantUser);
+      return team;
+    } catch (error) {
+      console.error("Participant registration failed", error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const loginParticipant = useCallback(async (teamName: string) => {
-      setIsLoading(true);
-      try {
-          const team = await api.loginTeam(teamName);
-          const participantUser: User = {
-              id: team.id,
-              name: `${team.teamName} (${team.leaderName})`,
-              role: UserRole.Participant,
-          };
-          setUser(participantUser);
-          return team;
-      } catch (error) {
-          console.error("Participant login failed", error);
-          throw error;
-      } finally {
-          setIsLoading(false);
-      }
+  const loginParticipant = useCallback(async (teamName: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const team = await api.loginTeam(teamName, password);
+      const participantUser: User = {
+        id: team.id,
+        name: `${team.teamName} (${team.leaderName})`,
+        role: UserRole.Participant,
+      };
+      setUser(participantUser);
+      return team;
+    } catch (error) {
+      console.error("Participant login failed", error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
 

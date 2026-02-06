@@ -45,7 +45,8 @@ const ComponentSchema = new mongoose.Schema({
 const TeamSchema = new mongoose.Schema({
   teamName: { type: String, required: true, unique: true },
   leaderName: { type: String, required: true },
-  registrationNumber: { type: String, required: true, unique: true }
+  registrationNumber: { type: String, required: true, unique: true },
+  password: { type: String, required: true }
 });
 
 const RequestSchema = new mongoose.Schema({
@@ -66,35 +67,35 @@ const Request = mongoose.model('Request', RequestSchema);
 // --- HELPER: STOCK RECALCULATION ---
 // This fixes data drift (like negative reserved quantities) by syncing DB with actual active requests
 const recalculateInventory = async () => {
-    if (mongoose.connection.readyState !== 1) return;
-    
-    console.log('🔄 Syncing inventory reservation counts...');
-    try {
-        // 1. Reset all reserved counts to 0
-        await Component.updateMany({}, { $set: { reservedQuantity: 0 } });
+  if (mongoose.connection.readyState !== 1) return;
 
-        // 2. Find all active requests (Pending, Modified, Approved)
-        const activeRequests = await Request.find({
-            status: { $in: ['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'] }
-        });
+  console.log('🔄 Syncing inventory reservation counts...');
+  try {
+    // 1. Reset all reserved counts to 0
+    await Component.updateMany({}, { $set: { reservedQuantity: 0 } });
 
-        // 3. Sum up quantities per component
-        const reservationMap = {};
-        activeRequests.forEach(req => {
-            req.items.forEach(item => {
-                const id = item.componentId.toString();
-                reservationMap[id] = (reservationMap[id] || 0) + item.quantity;
-            });
-        });
+    // 2. Find all active requests (Pending, Modified, Approved)
+    const activeRequests = await Request.find({
+      status: { $in: ['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'] }
+    });
 
-        // 4. Update components
-        for (const [id, qty] of Object.entries(reservationMap)) {
-            await Component.findByIdAndUpdate(id, { reservedQuantity: qty });
-        }
-        console.log('✅ Inventory reservations synchronized.');
-    } catch (err) {
-        console.error('❌ Failed to sync inventory:', err.message);
+    // 3. Sum up quantities per component
+    const reservationMap = {};
+    activeRequests.forEach(req => {
+      req.items.forEach(item => {
+        const id = item.componentId.toString();
+        reservationMap[id] = (reservationMap[id] || 0) + item.quantity;
+      });
+    });
+
+    // 4. Update components
+    for (const [id, qty] of Object.entries(reservationMap)) {
+      await Component.findByIdAndUpdate(id, { reservedQuantity: qty });
     }
+    console.log('✅ Inventory reservations synchronized.');
+  } catch (err) {
+    console.error('❌ Failed to sync inventory:', err.message);
+  }
 };
 
 // --- API ROUTES ---
@@ -129,7 +130,7 @@ const seedAndSync = async () => {
     }
     await recalculateInventory();
   } catch (err) {
-      console.error("Seed/Sync failed:", err.message);
+    console.error("Seed/Sync failed:", err.message);
   }
 };
 // Wait a moment for DB connection before attempting
@@ -173,7 +174,7 @@ app.get('/api/inventory', checkDbConnection, async (req, res) => {
 app.post('/api/teams/register', checkDbConnection, async (req, res) => {
   const { teamName, leaderName, registrationNumber } = req.body;
   if (!teamName || !leaderName || !registrationNumber) {
-      return res.status(400).json({ error: 'All fields are required for registration.' });
+    return res.status(400).json({ error: 'All fields are required for registration.' });
   }
 
   try {
@@ -181,46 +182,72 @@ app.post('/api/teams/register', checkDbConnection, async (req, res) => {
     if (existingTeamByName) {
       return res.status(409).json({ error: 'This team name is already taken.' });
     }
-    
+
     const existingTeamByReg = await Team.findOne({ registrationNumber: { $regex: new RegExp(`^${registrationNumber.trim()}$`, 'i') } });
     if (existingTeamByReg) {
       return res.status(409).json({ error: 'This registration number is already in use.' });
     }
-    
-    const newTeam = new Team({ 
-        teamName: teamName.trim(), 
-        leaderName: leaderName.trim(), 
-        registrationNumber: registrationNumber.trim()
+
+    // Generate a random password (8 characters, alphanumeric)
+    const generatePassword = () => {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'; // Excluding ambiguous characters
+      let password = '';
+      for (let i = 0; i < 8; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return password;
+    };
+
+    const generatedPassword = generatePassword();
+
+    const newTeam = new Team({
+      teamName: teamName.trim(),
+      leaderName: leaderName.trim(),
+      registrationNumber: registrationNumber.trim(),
+      password: generatedPassword
     });
     await newTeam.save();
 
-    res.status(201).json({ ...newTeam.toObject(), id: newTeam._id });
+    // Return the password in the response (only shown once during registration)
+    res.status(201).json({
+      ...newTeam.toObject(),
+      id: newTeam._id,
+      password: generatedPassword // Include password in response
+    });
   } catch (err) {
-      if (err.code === 11000) { // Mongoose duplicate key error
-          if (err.message.includes('teamName')) {
-             return res.status(409).json({ error: 'This team name is already in use.' });
-          }
-          if (err.message.includes('registrationNumber')) {
-            return res.status(409).json({ error: 'This registration number is already in use.' });
-          }
+    if (err.code === 11000) { // Mongoose duplicate key error
+      if (err.message.includes('teamName')) {
+        return res.status(409).json({ error: 'This team name is already in use.' });
       }
-      res.status(500).json({ error: err.message });
+      if (err.message.includes('registrationNumber')) {
+        return res.status(409).json({ error: 'This registration number is already in use.' });
+      }
+    }
+    res.status(500).json({ error: err.message });
   }
 });
 
 
 // Team Login
 app.post('/api/teams/login', checkDbConnection, async (req, res) => {
-  const { teamName } = req.body;
-  if (!teamName) {
-      return res.status(400).json({ error: 'Team name is required.' });
+  const { teamName, password } = req.body;
+  if (!teamName || !password) {
+    return res.status(400).json({ error: 'Team name and password are required.' });
   }
   try {
     const team = await Team.findOne({ teamName: { $regex: new RegExp(`^${teamName.trim()}$`, 'i') } });
     if (!team) {
       return res.status(404).json({ error: 'Team not found. Please register first.' });
     }
-    res.json({ ...team.toObject(), id: team._id });
+
+    // Verify password
+    if (team.password !== password) {
+      return res.status(401).json({ error: 'Invalid password.' });
+    }
+
+    // Don't send password back in response
+    const { password: _, ...teamData } = team.toObject();
+    res.json({ ...teamData, id: team._id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -257,7 +284,7 @@ app.post('/api/requests', checkDbConnection, async (req, res) => {
 app.patch('/api/requests/:id', checkDbConnection, async (req, res) => {
   const { id } = req.params;
   const { status, items, notes } = req.body; // items is optional
-  
+
   try {
     const oldRequest = await Request.findById(id);
     if (!oldRequest) return res.status(404).send('Request not found');
@@ -270,9 +297,9 @@ app.patch('/api/requests/:id', checkDbConnection, async (req, res) => {
     // FINALIZED: Counts as deducted from totalQuantity
     // NONE: No impact (e.g. REJECTED)
     const getStockImpactType = (s) => {
-        if (['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'].includes(s)) return 'RESERVED';
-        if (s === 'COLLECTED') return 'FINALIZED';
-        return 'NONE';
+      if (['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'].includes(s)) return 'RESERVED';
+      if (s === 'COLLECTED') return 'FINALIZED';
+      return 'NONE';
     };
 
     const oldType = getStockImpactType(oldRequest.status);
@@ -280,30 +307,30 @@ app.patch('/api/requests/:id', checkDbConnection, async (req, res) => {
 
     // 1. Revert Old Impact (Undo what the old request was doing to the stock)
     if (oldType === 'RESERVED') {
-        for (const item of oldRequest.items) {
-            await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: -item.quantity } });
-        }
+      for (const item of oldRequest.items) {
+        await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: -item.quantity } });
+      }
     } else if (oldType === 'FINALIZED') {
-        for (const item of oldRequest.items) {
-            await Component.findByIdAndUpdate(item.componentId, { $inc: { totalQuantity: item.quantity } });
-        }
+      for (const item of oldRequest.items) {
+        await Component.findByIdAndUpdate(item.componentId, { $inc: { totalQuantity: item.quantity } });
+      }
     }
 
     // 2. Apply New Impact (Apply what the new request state should do)
     if (newType === 'RESERVED') {
-        for (const item of newItems) {
-            await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: item.quantity } });
-        }
+      for (const item of newItems) {
+        await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: item.quantity } });
+      }
     } else if (newType === 'FINALIZED') {
-        for (const item of newItems) {
-            await Component.findByIdAndUpdate(item.componentId, { $inc: { totalQuantity: -item.quantity } });
-        }
+      for (const item of newItems) {
+        await Component.findByIdAndUpdate(item.componentId, { $inc: { totalQuantity: -item.quantity } });
+      }
     }
 
     // 3. Update Request Record
     const updateData = { status: newStatus, notes };
     if (items) {
-        updateData.items = items.map(i => ({ componentId: i.componentId, quantity: i.quantity }));
+      updateData.items = items.map(i => ({ componentId: i.componentId, quantity: i.quantity }));
     }
 
     const updated = await Request.findByIdAndUpdate(id, updateData, { new: true });
@@ -357,6 +384,47 @@ app.put('/api/components', checkDbConnection, async (req, res) => {
       await component.save();
     }
     res.json({ ...component.toObject(), id: component._id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete Team (Admin)
+app.delete('/api/teams/:id', checkDbConnection, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const team = await Team.findById(id);
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+
+    // Find all requests associated with this team
+    const teamRequests = await Request.find({ teamId: id });
+
+    // Restore stock for each request before deleting
+    for (const request of teamRequests) {
+      if (request.status === 'COLLECTED') {
+        // If collected, it was deducted from Total. Restore Total.
+        for (const item of request.items) {
+          await Component.findByIdAndUpdate(item.componentId, {
+            $inc: { totalQuantity: item.quantity }
+          });
+        }
+      } else if (['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'].includes(request.status)) {
+        // If Reserved, release reservation.
+        for (const item of request.items) {
+          await Component.findByIdAndUpdate(item.componentId, {
+            $inc: { reservedQuantity: -item.quantity }
+          });
+        }
+      }
+    }
+
+    // Delete all requests associated with this team
+    await Request.deleteMany({ teamId: id });
+
+    // Delete the team
+    await Team.findByIdAndDelete(id);
+
+    res.json({ message: 'Team and all associated requests deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

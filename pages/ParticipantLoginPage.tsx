@@ -8,23 +8,24 @@ import InputField from '../components/common/InputField';
 
 const ParticipantLoginPage: React.FC = () => {
   const [teamName, setTeamName] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { loginParticipant, isLoading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!teamName) {
-      setError('Team Name is required.');
+    if (!teamName || !password) {
+      setError('Team Name and Password are required.');
       return;
     }
     setError('');
 
     try {
-      await loginParticipant(teamName);
+      await loginParticipant(teamName, password);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your team name.');
+      setError(err.message || 'Login failed. Please check your credentials.');
     }
   };
 
@@ -48,6 +49,16 @@ const ParticipantLoginPage: React.FC = () => {
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}
             placeholder="e.g. RoboTitans"
+            disabled={isLoading}
+          />
+
+          <InputField
+            id="password"
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter your team password"
             disabled={isLoading}
           />
 

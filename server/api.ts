@@ -4,12 +4,12 @@ const BASE_URL = ''; // This is correct for proxy in dev and same-origin in prod
 
 // Helper to create descriptive error messages from fetch responses
 const createApiError = async (response: Response, defaultMessage: string): Promise<Error> => {
-    try {
-        const errorData = await response.json();
-        return new Error(errorData.error || `${defaultMessage} (Status: ${response.status})`);
-    } catch {
-        return new Error(`${defaultMessage} (Status: ${response.status})`);
-    }
+  try {
+    const errorData = await response.json();
+    return new Error(errorData.error || `${defaultMessage} (Status: ${response.status})`);
+  } catch {
+    return new Error(`${defaultMessage} (Status: ${response.status})`);
+  }
 };
 
 const api = {
@@ -24,11 +24,11 @@ const api = {
     return response.json();
   },
 
-  async loginTeam(teamName: string): Promise<Team> {
+  async loginTeam(teamName: string, password: string): Promise<Team> {
     const response = await fetch(`${BASE_URL}/api/teams/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ teamName }),
+      body: JSON.stringify({ teamName, password }),
     });
     if (!response.ok) throw await createApiError(response, 'Login failed');
     return response.json();
@@ -39,7 +39,7 @@ const api = {
     const response = await fetch(`${BASE_URL}/api/inventory`);
     if (!response.ok) throw await createApiError(response, 'Failed to fetch inventory data');
     const data = await response.json();
-    
+
     // Map dates and ensure IDs are strings
     return {
       ...data,
@@ -48,8 +48,8 @@ const api = {
         id: r.id || r._id,
         timestamp: new Date(r.timestamp),
         items: r.items.map((i: any) => ({
-            ...i,
-            component: i.component ? { ...i.component, id: i.component._id || i.component.id } : null
+          ...i,
+          component: i.component ? { ...i.component, id: i.component._id || i.component.id } : null
         }))
       })),
       components: data.components.map((c: any) => ({ ...c, id: c._id || c.id }))
@@ -93,6 +93,13 @@ const api = {
     });
     if (!response.ok) throw await createApiError(response, 'Failed to save component');
     return response.json();
+  },
+
+  async deleteTeam(teamId: string): Promise<void> {
+    const response = await fetch(`${BASE_URL}/api/teams/${teamId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw await createApiError(response, 'Failed to delete team');
   }
 };
 

@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import DashboardMetrics from '../components/admin/DashboardMetrics';
 import RequestList from '../components/admin/RequestList';
 import InventoryManager from '../components/admin/InventoryManager';
-import TeamRegistration from '../components/admin/TeamRegistration';
+import TeamManager from '../components/admin/TeamManager';
 import { RequestStatus } from '../types';
 import { useInventory } from '../context/InventoryContext';
 
 const AdminDashboardPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'active' | 'approved' | 'released' | 'inventory' | 'register'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'approved' | 'released' | 'inventory' | 'register' | 'teams'>('active');
   const { lastSync } = useInventory();
 
-  const TabButton: React.FC<{ tab: 'active' | 'approved' | 'released' | 'inventory' | 'register', label: string }> = ({ tab, label }) => (
+  const TabButton: React.FC<{ tab: 'active' | 'approved' | 'released' | 'inventory' | 'register' | 'teams', label: string }> = ({ tab, label }) => (
     <button
       onClick={() => setActiveTab(tab)}
       className={`whitespace-nowrap py-4 px-6 sm:px-10 font-black text-xs sm:text-sm uppercase tracking-widest transition-all duration-200 focus:outline-none border-b-2 ${activeTab === tab
@@ -47,7 +47,7 @@ const AdminDashboardPage: React.FC = () => {
             <TabButton tab="approved" label="Approved" />
             <TabButton tab="released" label="History" />
             <TabButton tab="inventory" label="Manage Items" />
-            <TabButton tab="register" label="Register Teams" />
+            <TabButton tab="teams" label="Manage Teams" />
           </nav>
         </div>
 
@@ -72,9 +72,9 @@ const AdminDashboardPage: React.FC = () => {
               <InventoryManager />
             </div>
           )}
-          {activeTab === 'register' && (
+          {activeTab === 'teams' && (
             <div className="fade-in">
-              <TeamRegistration />
+              <TeamManager />
             </div>
           )}
         </div>
