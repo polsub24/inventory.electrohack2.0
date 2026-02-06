@@ -29,7 +29,7 @@ const Header: React.FC = () => {
         <span className="text-base sm:text-xl font-black text-white tracking-tight leading-none group-hover:text-amber-500 transition-colors uppercase italic">
           Electrohack <span className="text-amber-500">2.0</span>
         </span>
-        <span className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-bold leading-none mt-1">Inventory System</span>
+        <span className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-bold leading-none mt-1">Resource Management</span>
       </div>
     </div>
   );

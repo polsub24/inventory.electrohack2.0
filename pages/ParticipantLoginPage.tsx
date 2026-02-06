@@ -39,7 +39,7 @@ const ParticipantLoginPage: React.FC = () => {
             </svg>
           </div>
           <h2 className="text-3xl font-black text-center text-white uppercase tracking-tighter italic">Team Login</h2>
-          <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Electrohack Inventory System</p>
+          <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Challenge Resources</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">

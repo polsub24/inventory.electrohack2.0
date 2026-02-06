@@ -27,7 +27,7 @@ const AdminDashboardPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-4xl font-black text-amber-500 uppercase italic tracking-tighter">Admin Dashboard</h1>
-          <p className="text-[10px] text-gray-500 uppercase tracking-[0.3em] mt-1 font-bold">Control & Monitoring System</p>
+          <p className="text-[10px] text-gray-500 uppercase tracking-[0.3em] mt-1 font-bold">Resource Control & Monitoring</p>
         </div>
         <div className="flex items-center space-x-2 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20">
           <span className="relative flex h-2 w-2">
@@ -46,7 +46,7 @@ const AdminDashboardPage: React.FC = () => {
             <TabButton tab="active" label="Queue" />
             <TabButton tab="approved" label="Approved" />
             <TabButton tab="released" label="History" />
-            <TabButton tab="inventory" label="Manage Items" />
+            <TabButton tab="inventory" label="Manage Resources" />
             <TabButton tab="teams" label="Manage Teams" />
           </nav>
         </div>
