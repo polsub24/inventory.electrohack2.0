@@ -6,7 +6,7 @@ import Button from '../components/common/Button';
 
 // --- CONFIGURATION ---
 // CHANGE YOUR ADMIN PASSWORD HERE
-const ADMIN_SECRET = 'electrohack2025'; 
+const ADMIN_SECRET = 'electrocaspaglus2026';
 // ---------------------
 
 const AdminLoginPage: React.FC = () => {
@@ -29,8 +29,8 @@ const AdminLoginPage: React.FC = () => {
     <div className="flex items-center justify-center min-h-[70vh]">
       <Card className="w-full max-w-sm border border-amber-900/30">
         <div className="mb-6 text-center">
-            <h2 className="text-2xl font-black text-amber-500 uppercase tracking-tighter italic">Admin Portal</h2>
-            <p className="text-gray-500 text-xs uppercase tracking-widest mt-1">Authorized Access Only</p>
+          <h2 className="text-2xl font-black text-amber-500 uppercase tracking-tighter italic">Admin Portal</h2>
+          <p className="text-gray-500 text-xs uppercase tracking-widest mt-1">Authorized Access Only</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
