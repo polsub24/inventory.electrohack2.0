@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
 import { useInventory } from '../../context/InventoryContext';
+import { RequestStatus } from '../../types';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Spinner from '../common/Spinner';
 import InputField from '../common/InputField';
+import Modal from '../common/Modal';
 import api from '../../server/api';
 
 const TeamManager: React.FC = () => {
-    const { teams, refreshData } = useInventory();
+    const { teams, requests, components, refreshData } = useInventory();
     const [searchQuery, setSearchQuery] = useState('');
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [showAddForm, setShowAddForm] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [generatedCredentials, setGeneratedCredentials] = useState<{ teamName: string; password: string } | null>(null);
+    const [viewingTeamId, setViewingTeamId] = useState<string | null>(null);
 
     // Add team form state
     const [teamName, setTeamName] = useState('');
@@ -81,6 +84,43 @@ const TeamManager: React.FC = () => {
         } finally {
             setIsAdding(false);
         }
+    };
+
+    // Get team's collected and returned components
+    const getTeamInventory = (teamId: string) => {
+        const teamRequests = requests.filter(r =>
+            r.teamId === teamId &&
+            (r.status === RequestStatus.Collected || r.status === RequestStatus.Returned)
+        );
+
+        const collected: { [key: string]: { component: any, quantity: number } } = {};
+        const returned: { [key: string]: { component: any, quantity: number } } = {};
+
+        teamRequests.forEach(req => {
+            req.items.forEach(item => {
+                const comp = components.find(c => c.id === item.componentId);
+                if (!comp) return;
+
+                if (req.status === RequestStatus.Collected) {
+                    if (collected[item.componentId]) {
+                        collected[item.componentId].quantity += item.quantity;
+                    } else {
+                        collected[item.componentId] = { component: comp, quantity: item.quantity };
+                    }
+                } else if (req.status === RequestStatus.Returned) {
+                    if (returned[item.componentId]) {
+                        returned[item.componentId].quantity += item.quantity;
+                    } else {
+                        returned[item.componentId] = { component: comp, quantity: item.quantity };
+                    }
+                }
+            });
+        });
+
+        return {
+            collected: Object.values(collected),
+            returned: Object.values(returned)
+        };
     };
 
     return (
@@ -251,37 +291,165 @@ const TeamManager: React.FC = () => {
                 </Card>
             ) : (
                 <div className="grid gap-4">
-                    {filteredTeams.map((team) => (
-                        <Card key={team.id} className="hover:border-amber-500/30 transition-colors">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                <div className="flex-1">
-                                    <h4 className="text-lg font-black text-white uppercase tracking-tight italic">
-                                        {team.teamName}
-                                    </h4>
-                                    <div className="mt-2 space-y-1">
-                                        <p className="text-sm text-gray-400">
-                                            <span className="text-gray-600 uppercase text-xs font-bold tracking-wider">Leader:</span>{' '}
-                                            <span className="text-gray-300 font-semibold">{team.leaderName}</span>
-                                        </p>
-                                        <p className="text-sm text-gray-400">
-                                            <span className="text-gray-600 uppercase text-xs font-bold tracking-wider">Reg #:</span>{' '}
-                                            <span className="text-amber-500 font-mono font-semibold">{team.registrationNumber}</span>
-                                        </p>
+                    {filteredTeams.map((team) => {
+                        const inventory = getTeamInventory(team.id);
+                        const collectedCount = inventory.collected.reduce((sum, item) => sum + item.quantity, 0);
+                        const returnedCount = inventory.returned.reduce((sum, item) => sum + item.quantity, 0);
+
+                        return (
+                            <Card key={team.id} className="hover:border-amber-500/30 transition-colors">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                    <div className="flex-1">
+                                        <h4 className="text-lg font-black text-white uppercase tracking-tight italic">
+                                            {team.teamName}
+                                        </h4>
+                                        <div className="mt-2 space-y-1">
+                                            <p className="text-sm text-gray-400">
+                                                <span className="text-gray-600 uppercase text-xs font-bold tracking-wider">Leader:</span>{' '}
+                                                <span className="text-gray-300 font-semibold">{team.leaderName}</span>
+                                            </p>
+                                            <p className="text-sm text-gray-400">
+                                                <span className="text-gray-600 uppercase text-xs font-bold tracking-wider">Reg #:</span>{' '}
+                                                <span className="text-amber-500 font-mono font-semibold">{team.registrationNumber}</span>
+                                            </p>
+                                            <div className="flex gap-4 mt-2">
+                                                <p className="text-xs text-gray-500">
+                                                    <span className="text-green-400 font-black">{collectedCount}</span> collected
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    <span className="text-blue-400 font-black">{returnedCount}</span> returned
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            onClick={() => setViewingTeamId(team.id)}
+                                            variant="secondary"
+                                            size="sm"
+                                            className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+                                        >
+                                            View Inventory
+                                        </Button>
+                                        <Button
+                                            onClick={() => handleDeleteTeam(team.id, team.teamName)}
+                                            variant="danger"
+                                            size="sm"
+                                            disabled={isDeleting === team.id}
+                                        >
+                                            {isDeleting === team.id ? <Spinner /> : 'Delete'}
+                                        </Button>
                                     </div>
                                 </div>
-                                <Button
-                                    onClick={() => handleDeleteTeam(team.id, team.teamName)}
-                                    variant="danger"
-                                    size="sm"
-                                    disabled={isDeleting === team.id}
-                                >
-                                    {isDeleting === team.id ? <Spinner /> : 'Delete'}
-                                </Button>
-                            </div>
-                        </Card>
-                    ))}
+                            </Card>
+                        );
+                    })}
                 </div>
             )}
+
+            {/* Team Inventory Modal */}
+            {viewingTeamId && (() => {
+                const team = teams.find(t => t.id === viewingTeamId);
+                if (!team) return null;
+
+                const inventory = getTeamInventory(viewingTeamId);
+
+                return (
+                    <Modal
+                        isOpen={true}
+                        onClose={() => setViewingTeamId(null)}
+                        title={`${team.teamName} - Inventory`}
+                    >
+                        <div className="space-y-6">
+                            {/* Collected Components */}
+                            <div>
+                                <h4 className="text-sm font-black text-green-400 uppercase tracking-widest mb-3">
+                                    Collected Components ({inventory.collected.length})
+                                </h4>
+                                {inventory.collected.length === 0 ? (
+                                    <p className="text-center text-gray-500 py-4 text-xs uppercase tracking-widest">
+                                        No components collected
+                                    </p>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left">
+                                            <thead className="border-b border-gray-800">
+                                                <tr>
+                                                    <th className="p-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Component</th>
+                                                    <th className="p-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Category</th>
+                                                    <th className="p-3 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Quantity</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-800">
+                                                {inventory.collected.map((item, idx) => (
+                                                    <tr key={idx} className="hover:bg-green-500/5 transition-colors">
+                                                        <td className="p-3 font-bold text-gray-100 text-xs">{item.component.name}</td>
+                                                        <td className="p-3">
+                                                            <span className="text-[8px] font-bold text-amber-500 uppercase tracking-widest border border-amber-900/40 px-2 py-0.5 rounded">
+                                                                {item.component.category}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 text-green-400 font-mono text-xs font-black text-right">{item.quantity}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Returned Components */}
+                            <div>
+                                <h4 className="text-sm font-black text-blue-400 uppercase tracking-widest mb-3">
+                                    Returned Components ({inventory.returned.length})
+                                </h4>
+                                {inventory.returned.length === 0 ? (
+                                    <p className="text-center text-gray-500 py-4 text-xs uppercase tracking-widest">
+                                        No components returned
+                                    </p>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left">
+                                            <thead className="border-b border-gray-800">
+                                                <tr>
+                                                    <th className="p-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Component</th>
+                                                    <th className="p-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Category</th>
+                                                    <th className="p-3 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Quantity</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-800">
+                                                {inventory.returned.map((item, idx) => (
+                                                    <tr key={idx} className="hover:bg-blue-500/5 transition-colors">
+                                                        <td className="p-3 font-bold text-gray-100 text-xs">{item.component.name}</td>
+                                                        <td className="p-3">
+                                                            <span className="text-[8px] font-bold text-amber-500 uppercase tracking-widest border border-amber-900/40 px-2 py-0.5 rounded">
+                                                                {item.component.category}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 text-blue-400 font-mono text-xs font-black text-right">{item.quantity}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Summary */}
+                            <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded">
+                                <p className="text-xs text-gray-400">
+                                    <span className="font-black text-green-400">Total Collected:</span>{' '}
+                                    {inventory.collected.reduce((sum, item) => sum + item.quantity, 0)} units
+                                </p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    <span className="font-black text-blue-400">Total Returned:</span>{' '}
+                                    {inventory.returned.reduce((sum, item) => sum + item.quantity, 0)} units
+                                </p>
+                            </div>
+                        </div>
+                    </Modal>
+                );
+            })()}
         </div>
     );
 };

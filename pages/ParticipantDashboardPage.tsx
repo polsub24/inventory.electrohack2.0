@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import ComponentList from '../components/participant/ComponentList';
 import Cart from '../components/participant/Cart';
 import RequestHistory from '../components/participant/RequestHistory';
+import CollectedComponents from '../components/participant/CollectedComponents';
 import { CartItem } from '../types';
 
 const ParticipantDashboardPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'store' | 'requests'>('store');
+  const [activeTab, setActiveTab] = useState<'store' | 'requests' | 'inventory'>('store');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
@@ -39,12 +40,12 @@ const ParticipantDashboardPage: React.FC = () => {
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const TabButton: React.FC<{ tab: 'store' | 'requests', label: string }> = ({ tab, label }) => (
+  const TabButton: React.FC<{ tab: 'store' | 'requests' | 'inventory', label: string }> = ({ tab, label }) => (
     <button
       onClick={() => setActiveTab(tab)}
       className={`flex-1 py-4 px-4 sm:px-8 font-black text-xs sm:text-sm uppercase tracking-widest transition-all duration-200 focus:outline-none border-b-2 ${activeTab === tab
-          ? 'border-amber-500 text-amber-500 bg-amber-500/5'
-          : 'border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/30'
+        ? 'border-amber-500 text-amber-500 bg-amber-500/5'
+        : 'border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/30'
         }`}
     >
       {label}
@@ -61,6 +62,7 @@ const ParticipantDashboardPage: React.FC = () => {
           <nav className="flex" aria-label="Tabs">
             <TabButton tab="store" label="Resources" />
             <TabButton tab="requests" label="My Requests" />
+            <TabButton tab="inventory" label="My Inventory" />
           </nav>
         </div>
       </div>
@@ -74,6 +76,11 @@ const ParticipantDashboardPage: React.FC = () => {
         {activeTab === 'requests' && (
           <div className="fade-in max-w-4xl mx-auto">
             <RequestHistory />
+          </div>
+        )}
+        {activeTab === 'inventory' && (
+          <div className="fade-in max-w-6xl mx-auto">
+            <CollectedComponents />
           </div>
         )}
       </div>
