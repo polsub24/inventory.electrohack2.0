@@ -161,7 +161,13 @@ app.get('/api/inventory', checkDbConnection, async (req, res) => {
     }));
 
     res.json({
-      components: components.map(c => ({ ...c.toObject(), id: c._id })),
+      components: components.map(c => ({
+        id: c._id,
+        name: c.name,
+        category: c.category,
+        totalQuantity: c.totalQuantity,
+        reservedQuantity: c.reservedQuantity || 0
+      })),
       teams: teams.map(t => ({ ...t.toObject(), id: t._id })),
       requests: mappedRequests
     });
@@ -380,10 +386,16 @@ app.put('/api/components', checkDbConnection, async (req, res) => {
     if (id && mongoose.Types.ObjectId.isValid(id)) {
       component = await Component.findByIdAndUpdate(id, { name, category, totalQuantity }, { new: true });
     } else {
-      component = new Component({ name, category, totalQuantity });
+      component = new Component({ name, category, totalQuantity, reservedQuantity: 0 });
       await component.save();
     }
-    res.json({ ...component.toObject(), id: component._id });
+    res.json({
+      id: component._id,
+      name: component.name,
+      category: component.category,
+      totalQuantity: component.totalQuantity,
+      reservedQuantity: component.reservedQuantity || 0
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
