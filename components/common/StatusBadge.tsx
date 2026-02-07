@@ -13,6 +13,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
     [RequestStatus.Approved]: { text: 'READY', color: 'border-green-500/30 text-green-400' },
     [RequestStatus.Rejected]: { text: 'REJECTED', color: 'border-red-500/30 text-red-400' },
     [RequestStatus.Collected]: { text: 'COLLECTED', color: 'border-gray-500/30 text-gray-400' },
+    [RequestStatus.Returned]: { text: 'RETURNED', color: 'border-blue-500/30 text-blue-400' },
   };
 
   const { text, color } = statusConfig[status] || { text: 'UNKNOWN', color: 'border-gray-700 text-gray-500' };

@@ -64,7 +64,7 @@ const AdminDashboardPage: React.FC = () => {
           )}
           {activeTab === 'released' && (
             <div className="fade-in">
-              <RequestList statuses={[RequestStatus.Collected]} emptyMessage="No release history available." />
+              <RequestList statuses={[RequestStatus.Collected, RequestStatus.Returned]} emptyMessage="No release history available." />
             </div>
           )}
           {activeTab === 'inventory' && (

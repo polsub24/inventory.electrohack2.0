@@ -78,6 +78,15 @@ const api = {
     return response.json();
   },
 
+  async reinstateInventory(requestId: string): Promise<Request> {
+    const response = await fetch(`${BASE_URL}/api/requests/${requestId}/reinstate`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) throw await createApiError(response, 'Failed to reinstate inventory');
+    return response.json();
+  },
+
   async deleteRequest(requestId: string): Promise<void> {
     const response = await fetch(`${BASE_URL}/api/requests/${requestId}`, {
       method: 'DELETE',

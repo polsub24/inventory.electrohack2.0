@@ -11,9 +11,9 @@ interface RequestDetailViewProps {
 }
 
 const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
-  const { updateRequestByAdmin, approveRequest, rejectRequest, releaseComponents, deleteRequest, components } = useInventory();
+  const { updateRequestByAdmin, approveRequest, rejectRequest, releaseComponents, reinstateInventory, deleteRequest, components } = useInventory();
   const navigate = useNavigate();
-  const [editableItems, setEditableItems] = useState<{componentId: string, quantity: number}[]>([]);
+  const [editableItems, setEditableItems] = useState<{ componentId: string, quantity: number }[]>([]);
   const [notes, setNotes] = useState(request.notes || '');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedComponentToAdd, setSelectedComponentToAdd] = useState<string>('');
@@ -28,32 +28,35 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
     setEditableItems(items =>
       items.map(item => {
         if (item.componentId === componentId) {
-            const newQty = Math.max(0, item.quantity + delta);
-            return { ...item, quantity: newQty };
+          const newQty = Math.max(0, item.quantity + delta);
+          return { ...item, quantity: newQty };
         }
         return item;
       }).filter(item => item.quantity > 0) // Optional: remove if 0? Let's keep 0 to allow manual removal or clear intent
     );
   };
-  
+
   const handleAddNewComponent = () => {
-      if (!selectedComponentToAdd) return;
-      
-      const exists = editableItems.find(item => item.componentId === selectedComponentToAdd);
-      if (exists) {
-          // If already in list, just increment
-          handleQuantityChange(selectedComponentToAdd, 1);
-      } else {
-          setEditableItems([...editableItems, { componentId: selectedComponentToAdd, quantity: 1 }]);
-      }
-      setSelectedComponentToAdd('');
+    if (!selectedComponentToAdd) return;
+
+    const exists = editableItems.find(item => item.componentId === selectedComponentToAdd);
+    if (exists) {
+      // If already in list, just increment
+      handleQuantityChange(selectedComponentToAdd, 1);
+    } else {
+      setEditableItems([...editableItems, { componentId: selectedComponentToAdd, quantity: 1 }]);
+    }
+    setSelectedComponentToAdd('');
   };
 
-  const handleAction = async (action: 'modify' | 'approve' | 'reject' | 'release' | 'delete') => {
+  const handleAction = async (action: 'modify' | 'approve' | 'reject' | 'release' | 'reinstate' | 'delete') => {
     if (action === 'delete') {
-        if (!window.confirm("Are you sure? This will delete the request history and restore any relevant stock.")) return;
+      if (!window.confirm("Are you sure? This will delete the request history and restore any relevant stock.")) return;
     }
-    
+    if (action === 'reinstate') {
+      if (!window.confirm("Are you sure you want to return these components to inventory? This will increase the total stock.")) return;
+    }
+
     setIsLoading(true);
     try {
       switch (action) {
@@ -69,15 +72,18 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
         case 'release':
           await releaseComponents(request.id);
           break;
+        case 'reinstate':
+          await reinstateInventory(request.id);
+          break;
         case 'delete':
           await deleteRequest(request.id);
           break;
       }
       navigate('/admin');
     } catch (error) {
-        console.error(`Failed to ${action} request`, error);
+      console.error(`Failed to ${action} request`, error);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -102,7 +108,7 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
             {editableItems.map(item => {
               const originalItem = request.items.find(i => i.componentId === item.componentId);
               const component = components.find(c => c.id === item.componentId);
-              
+
               if (!component) return null;
 
               // Calculate available based on current stock + what this request is already holding (if any)
@@ -115,33 +121,33 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
               return (
                 <tr key={item.componentId} className="hover:bg-amber-500/5 transition-colors">
                   <td className="p-4">
-                      <p className="font-bold text-gray-100 text-sm md:text-base">{component.name}</p>
-                      {!originalItem && <span className="text-[9px] md:text-[10px] text-amber-500 font-black uppercase tracking-widest">NEWLY ADDED</span>}
+                    <p className="font-bold text-gray-100 text-sm md:text-base">{component.name}</p>
+                    {!originalItem && <span className="text-[9px] md:text-[10px] text-amber-500 font-black uppercase tracking-widest">NEWLY ADDED</span>}
                   </td>
                   <td className="p-4 text-gray-400 font-mono text-sm md:text-base">{originalItem ? originalItem.quantity : '-'}</td>
                   <td className="p-4">
                     <div className="flex items-center space-x-2">
-                         <button 
-                            onClick={() => handleQuantityChange(item.componentId, -1)}
-                            disabled={!isActionable || isLoading || item.quantity <= 0}
-                            className="w-8 h-8 rounded border border-gray-700 bg-black hover:bg-gray-800 text-amber-500 disabled:opacity-30 flex items-center justify-center font-bold"
-                         >
-                             -
-                         </button>
-                         <span className="w-8 text-center font-black text-white text-sm md:text-base">{item.quantity}</span>
-                         <button 
-                            onClick={() => handleQuantityChange(item.componentId, 1)}
-                            disabled={!isActionable || isLoading}
-                            className="w-8 h-8 rounded border border-gray-700 bg-black hover:bg-gray-800 text-amber-500 disabled:opacity-30 flex items-center justify-center font-bold"
-                         >
-                             +
-                         </button>
+                      <button
+                        onClick={() => handleQuantityChange(item.componentId, -1)}
+                        disabled={!isActionable || isLoading || item.quantity <= 0}
+                        className="w-8 h-8 rounded border border-gray-700 bg-black hover:bg-gray-800 text-amber-500 disabled:opacity-30 flex items-center justify-center font-bold"
+                      >
+                        -
+                      </button>
+                      <span className="w-8 text-center font-black text-white text-sm md:text-base">{item.quantity}</span>
+                      <button
+                        onClick={() => handleQuantityChange(item.componentId, 1)}
+                        disabled={!isActionable || isLoading}
+                        className="w-8 h-8 rounded border border-gray-700 bg-black hover:bg-gray-800 text-amber-500 disabled:opacity-30 flex items-center justify-center font-bold"
+                      >
+                        +
+                      </button>
                     </div>
                   </td>
                   <td className="p-4">
-                      <span className={`font-mono text-xs md:text-sm ${isStockIssue ? 'text-red-500 font-black' : 'text-gray-400'}`}>
-                          {trueAvailable} Available
-                      </span>
+                    <span className={`font-mono text-xs md:text-sm ${isStockIssue ? 'text-red-500 font-black' : 'text-gray-400'}`}>
+                      {trueAvailable} Available
+                    </span>
                   </td>
                 </tr>
               );
@@ -149,69 +155,72 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
           </tbody>
         </table>
       </div>
-      
+
       {isActionable && (
         <div className="p-4 bg-black/20 border-t border-gray-800 flex flex-col sm:flex-row gap-4 items-end sm:items-center">
-             <div className="flex-grow w-full sm:w-auto">
-                 <label className="block text-[10px] md:text-xs font-black text-gray-500 uppercase tracking-widest mb-2">Add Component to Request</label>
-                 <select 
-                    value={selectedComponentToAdd}
-                    onChange={(e) => setSelectedComponentToAdd(e.target.value)}
-                    className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white text-xs md:text-sm focus:ring-1 focus:ring-amber-500 outline-none"
-                 >
-                     <option value="">Select a component...</option>
-                     {availableComponentsToAdd.map(c => (
-                         <option key={c.id} value={c.id}>{c.name} ({c.totalQuantity - c.reservedQuantity} avail)</option>
-                     ))}
-                 </select>
-             </div>
-             <Button 
-                onClick={handleAddNewComponent} 
-                disabled={!selectedComponentToAdd || isLoading}
-                size="sm"
-                className="whitespace-nowrap h-9 w-full sm:w-auto"
-             >
-                 Add Item
-             </Button>
+          <div className="flex-grow w-full sm:w-auto">
+            <label className="block text-[10px] md:text-xs font-black text-gray-500 uppercase tracking-widest mb-2">Add Component to Request</label>
+            <select
+              value={selectedComponentToAdd}
+              onChange={(e) => setSelectedComponentToAdd(e.target.value)}
+              className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white text-xs md:text-sm focus:ring-1 focus:ring-amber-500 outline-none"
+            >
+              <option value="">Select a component...</option>
+              {availableComponentsToAdd.map(c => (
+                <option key={c.id} value={c.id}>{c.name} ({c.totalQuantity - c.reservedQuantity} avail)</option>
+              ))}
+            </select>
+          </div>
+          <Button
+            onClick={handleAddNewComponent}
+            disabled={!selectedComponentToAdd || isLoading}
+            size="sm"
+            className="whitespace-nowrap h-9 w-full sm:w-auto"
+          >
+            Add Item
+          </Button>
         </div>
       )}
-      
+
       {isActionable && (
         <div className="mt-6 px-4">
-            <label htmlFor="notes" className="block text-[10px] md:text-xs font-black text-gray-500 uppercase tracking-widest mb-2">Internal Admin Notes</label>
-            <textarea
-                id="notes"
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="mt-1 block w-full px-4 py-3 bg-black border border-gray-800 rounded-md shadow-sm text-gray-300 placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-all text-sm md:text-base"
-                placeholder="Briefly explain any modifications made to this request..."
-                disabled={isLoading}
-            />
+          <label htmlFor="notes" className="block text-[10px] md:text-xs font-black text-gray-500 uppercase tracking-widest mb-2">Internal Admin Notes</label>
+          <textarea
+            id="notes"
+            rows={3}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="mt-1 block w-full px-4 py-3 bg-black border border-gray-800 rounded-md shadow-sm text-gray-300 placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-all text-sm md:text-base"
+            placeholder="Briefly explain any modifications made to this request..."
+            disabled={isLoading}
+          />
         </div>
       )}
 
       <div className="mt-10 px-4 pb-4 flex flex-wrap gap-3 justify-between items-center">
         <div>
-            <Button onClick={() => handleAction('delete')} variant="danger" size="sm" className="bg-red-950/30 hover:bg-red-900 border-red-900/50 text-red-500" disabled={isLoading}>
-                Delete History
-            </Button>
+          <Button onClick={() => handleAction('delete')} variant="danger" size="sm" className="bg-red-950/30 hover:bg-red-900 border-red-900/50 text-red-500" disabled={isLoading}>
+            Delete History
+          </Button>
         </div>
         <div className="flex flex-wrap gap-3 justify-end">
-            {isLoading ? <Spinner /> : (
+          {isLoading ? <Spinner /> : (
+            <>
+              {isActionable && (
                 <>
-                {isActionable && (
-                    <>
-                        <Button onClick={() => handleAction('modify')} variant="secondary" className="border-amber-900 text-amber-500">Apply Changes</Button>
-                        <Button onClick={() => handleAction('approve')} className="bg-amber-600 hover:bg-amber-500">Confirm & Approve</Button>
-                        <Button onClick={() => handleAction('reject')} variant="danger">Deny Request</Button>
-                    </> 
-                )}
-                {request.status === RequestStatus.Approved && (
-                    <Button onClick={() => handleAction('release')} className="bg-amber-600 hover:bg-amber-500 px-8">Finalize Release (Collected)</Button>
-                )}
+                  <Button onClick={() => handleAction('modify')} variant="secondary" className="border-amber-900 text-amber-500">Apply Changes</Button>
+                  <Button onClick={() => handleAction('approve')} className="bg-amber-600 hover:bg-amber-500">Confirm & Approve</Button>
+                  <Button onClick={() => handleAction('reject')} variant="danger">Deny Request</Button>
                 </>
-            )}
+              )}
+              {request.status === RequestStatus.Approved && (
+                <Button onClick={() => handleAction('release')} className="bg-amber-600 hover:bg-amber-500 px-8">Finalize Release (Collected)</Button>
+              )}
+              {request.status === RequestStatus.Collected && (
+                <Button onClick={() => handleAction('reinstate')} className="bg-green-600 hover:bg-green-500 px-8">Reinstate Inventory</Button>
+              )}
+            </>
+          )}
         </div>
       </div>
     </Card>

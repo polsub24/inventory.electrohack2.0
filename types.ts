@@ -44,6 +44,7 @@ export enum RequestStatus {
   Approved = 'APPROVED_READY',
   Rejected = 'REJECTED',
   Collected = 'COLLECTED',
+  Returned = 'RETURNED_TO_INVENTORY',
 }
 
 export interface RequestItem {

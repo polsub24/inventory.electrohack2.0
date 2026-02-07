@@ -346,6 +346,38 @@ app.patch('/api/requests/:id', checkDbConnection, async (req, res) => {
   }
 });
 
+// Reinstate Inventory (Admin - Return collected items to stock)
+app.patch('/api/requests/:id/reinstate', checkDbConnection, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const request = await Request.findById(id);
+    if (!request) return res.status(404).json({ error: 'Request not found' });
+
+    // Can only reinstate from COLLECTED status
+    if (request.status !== 'COLLECTED') {
+      return res.status(400).json({ error: 'Can only reinstate inventory from collected requests' });
+    }
+
+    // Restore the components to totalQuantity (reverse the collection)
+    for (const item of request.items) {
+      await Component.findByIdAndUpdate(item.componentId, {
+        $inc: { totalQuantity: item.quantity }
+      });
+    }
+
+    // Update request status to RETURNED_TO_INVENTORY
+    const updated = await Request.findByIdAndUpdate(
+      id,
+      { status: 'RETURNED_TO_INVENTORY' },
+      { new: true }
+    );
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Delete Request (Admin - Delete History)
 app.delete('/api/requests/:id', checkDbConnection, async (req, res) => {
   const { id } = req.params;
