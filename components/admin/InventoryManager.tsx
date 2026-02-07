@@ -81,7 +81,7 @@ const InventoryManager: React.FC = () => {
                 <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Component Name</th>
                 <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Category</th>
                 <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Total Qty</th>
-                <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Reserved</th>
+                <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Requested Qty</th>
                 <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500 text-right">Actions</th>
               </tr>
             </thead>
@@ -210,8 +210,8 @@ const InventoryManager: React.FC = () => {
                       <td className="p-3 text-amber-500 font-mono text-xs font-black">{team.quantity}</td>
                       <td className="p-3">
                         <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${team.status === 'COLLECTED'
-                            ? 'border-gray-500/30 text-gray-400'
-                            : 'border-blue-500/30 text-blue-400'
+                          ? 'border-gray-500/30 text-gray-400'
+                          : 'border-blue-500/30 text-blue-400'
                           }`}>
                           {team.status === 'COLLECTED' ? 'Collected' : 'Returned'}
                         </span>
