@@ -31,6 +31,7 @@ export interface Component {
   category: ComponentCategory;
   totalQuantity: number;
   reservedQuantity: number;
+  hasQuantityLimit?: boolean; // If false, component is unlimited (just available/out of stock)
 }
 
 export interface CartItem {

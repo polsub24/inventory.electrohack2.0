@@ -39,7 +39,8 @@ const ComponentSchema = new mongoose.Schema({
   name: { type: String, required: true },
   category: { type: String, required: true },
   totalQuantity: { type: Number, default: 0 },
-  reservedQuantity: { type: Number, default: 0 }
+  reservedQuantity: { type: Number, default: 0 },
+  hasQuantityLimit: { type: Boolean, default: true } // true = limited quantity, false = unlimited (just available/out of stock)
 });
 
 const TeamSchema = new mongoose.Schema({
@@ -166,7 +167,8 @@ app.get('/api/inventory', checkDbConnection, async (req, res) => {
         name: c.name,
         category: c.category,
         totalQuantity: c.totalQuantity,
-        reservedQuantity: c.reservedQuantity || 0
+        reservedQuantity: c.reservedQuantity || 0,
+        hasQuantityLimit: c.hasQuantityLimit !== false // Default to true if not set
       })),
       teams: teams.map(t => ({ ...t.toObject(), id: t._id })),
       requests: mappedRequests
@@ -272,11 +274,14 @@ app.post('/api/requests', checkDbConnection, async (req, res) => {
       }))
     });
 
-    // Update reserved quantities atomically
+    // Update reserved quantities atomically (skip unlimited components)
     for (const item of cart) {
-      await Component.findByIdAndUpdate(item.componentId, {
-        $inc: { reservedQuantity: item.quantity }
-      });
+      const component = await Component.findById(item.componentId);
+      if (component && component.hasQuantityLimit !== false) {
+        await Component.findByIdAndUpdate(item.componentId, {
+          $inc: { reservedQuantity: item.quantity }
+        });
+      }
     }
 
     await newRequest.save();
@@ -314,22 +319,34 @@ app.patch('/api/requests/:id', checkDbConnection, async (req, res) => {
     // 1. Revert Old Impact (Undo what the old request was doing to the stock)
     if (oldType === 'RESERVED') {
       for (const item of oldRequest.items) {
-        await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: -item.quantity } });
+        const component = await Component.findById(item.componentId);
+        if (component && component.hasQuantityLimit !== false) {
+          await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: -item.quantity } });
+        }
       }
     } else if (oldType === 'FINALIZED') {
       for (const item of oldRequest.items) {
-        await Component.findByIdAndUpdate(item.componentId, { $inc: { totalQuantity: item.quantity } });
+        const component = await Component.findById(item.componentId);
+        if (component && component.hasQuantityLimit !== false) {
+          await Component.findByIdAndUpdate(item.componentId, { $inc: { totalQuantity: item.quantity } });
+        }
       }
     }
 
     // 2. Apply New Impact (Apply what the new request state should do)
     if (newType === 'RESERVED') {
       for (const item of newItems) {
-        await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: item.quantity } });
+        const component = await Component.findById(item.componentId);
+        if (component && component.hasQuantityLimit !== false) {
+          await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: item.quantity } });
+        }
       }
     } else if (newType === 'FINALIZED') {
       for (const item of newItems) {
-        await Component.findByIdAndUpdate(item.componentId, { $inc: { totalQuantity: -item.quantity } });
+        const component = await Component.findById(item.componentId);
+        if (component && component.hasQuantityLimit !== false) {
+          await Component.findByIdAndUpdate(item.componentId, { $inc: { totalQuantity: -item.quantity } });
+        }
       }
     }
 
@@ -358,11 +375,14 @@ app.patch('/api/requests/:id/reinstate', checkDbConnection, async (req, res) => 
       return res.status(400).json({ error: 'Can only reinstate inventory from collected requests' });
     }
 
-    // Restore the components to totalQuantity (reverse the collection)
+    // Restore the components to totalQuantity (reverse the collection, skip unlimited)
     for (const item of request.items) {
-      await Component.findByIdAndUpdate(item.componentId, {
-        $inc: { totalQuantity: item.quantity }
-      });
+      const component = await Component.findById(item.componentId);
+      if (component && component.hasQuantityLimit !== false) {
+        await Component.findByIdAndUpdate(item.componentId, {
+          $inc: { totalQuantity: item.quantity }
+        });
+      }
     }
 
     // Update request status to RETURNED_TO_INVENTORY
@@ -387,18 +407,24 @@ app.delete('/api/requests/:id', checkDbConnection, async (req, res) => {
 
     // Restore stock based on status
     if (request.status === 'COLLECTED') {
-      // If collected, it was deducted from Total. Restore Total.
+      // If collected, it was deducted from Total. Restore Total (skip unlimited).
       for (const item of request.items) {
-        await Component.findByIdAndUpdate(item.componentId, {
-          $inc: { totalQuantity: item.quantity }
-        });
+        const component = await Component.findById(item.componentId);
+        if (component && component.hasQuantityLimit !== false) {
+          await Component.findByIdAndUpdate(item.componentId, {
+            $inc: { totalQuantity: item.quantity }
+          });
+        }
       }
     } else if (['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'].includes(request.status)) {
-      // If Reserved, release reservation.
+      // If Reserved, release reservation (skip unlimited).
       for (const item of request.items) {
-        await Component.findByIdAndUpdate(item.componentId, {
-          $inc: { reservedQuantity: -item.quantity }
-        });
+        const component = await Component.findById(item.componentId);
+        if (component && component.hasQuantityLimit !== false) {
+          await Component.findByIdAndUpdate(item.componentId, {
+            $inc: { reservedQuantity: -item.quantity }
+          });
+        }
       }
     }
     // If Rejected, stock was already released, just delete record.
@@ -412,13 +438,23 @@ app.delete('/api/requests/:id', checkDbConnection, async (req, res) => {
 
 // Manage Components
 app.put('/api/components', checkDbConnection, async (req, res) => {
-  const { id, name, category, totalQuantity } = req.body;
+  const { id, name, category, totalQuantity, hasQuantityLimit } = req.body;
   try {
     let component;
     if (id && mongoose.Types.ObjectId.isValid(id)) {
-      component = await Component.findByIdAndUpdate(id, { name, category, totalQuantity }, { new: true });
+      const updateData = { name, category, totalQuantity };
+      if (hasQuantityLimit !== undefined) {
+        updateData.hasQuantityLimit = hasQuantityLimit;
+      }
+      component = await Component.findByIdAndUpdate(id, updateData, { new: true });
     } else {
-      component = new Component({ name, category, totalQuantity, reservedQuantity: 0 });
+      component = new Component({
+        name,
+        category,
+        totalQuantity,
+        reservedQuantity: 0,
+        hasQuantityLimit: hasQuantityLimit !== undefined ? hasQuantityLimit : true
+      });
       await component.save();
     }
     res.json({
@@ -426,7 +462,8 @@ app.put('/api/components', checkDbConnection, async (req, res) => {
       name: component.name,
       category: component.category,
       totalQuantity: component.totalQuantity,
-      reservedQuantity: component.reservedQuantity || 0
+      reservedQuantity: component.reservedQuantity || 0,
+      hasQuantityLimit: component.hasQuantityLimit !== false
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -446,18 +483,24 @@ app.delete('/api/teams/:id', checkDbConnection, async (req, res) => {
     // Restore stock for each request before deleting
     for (const request of teamRequests) {
       if (request.status === 'COLLECTED') {
-        // If collected, it was deducted from Total. Restore Total.
+        // If collected, it was deducted from Total. Restore Total (skip unlimited).
         for (const item of request.items) {
-          await Component.findByIdAndUpdate(item.componentId, {
-            $inc: { totalQuantity: item.quantity }
-          });
+          const component = await Component.findById(item.componentId);
+          if (component && component.hasQuantityLimit !== false) {
+            await Component.findByIdAndUpdate(item.componentId, {
+              $inc: { totalQuantity: item.quantity }
+            });
+          }
         }
       } else if (['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'].includes(request.status)) {
-        // If Reserved, release reservation.
+        // If Reserved, release reservation (skip unlimited).
         for (const item of request.items) {
-          await Component.findByIdAndUpdate(item.componentId, {
-            $inc: { reservedQuantity: -item.quantity }
-          });
+          const component = await Component.findById(item.componentId);
+          if (component && component.hasQuantityLimit !== false) {
+            await Component.findByIdAndUpdate(item.componentId, {
+              $inc: { reservedQuantity: -item.quantity }
+            });
+          }
         }
       }
     }

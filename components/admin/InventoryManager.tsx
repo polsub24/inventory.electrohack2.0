@@ -19,6 +19,7 @@ const InventoryManager: React.FC = () => {
       name: '',
       category: ComponentCategory.Modules,
       totalQuantity: 0,
+      hasQuantityLimit: true,
     });
     setIsModalOpen(true);
   };
@@ -37,6 +38,7 @@ const InventoryManager: React.FC = () => {
           name: editingComponent.name,
           category: editingComponent.category as ComponentCategory,
           totalQuantity: editingComponent.totalQuantity || 0,
+          hasQuantityLimit: editingComponent.hasQuantityLimit !== false,
         });
         setIsModalOpen(false);
         setEditingComponent(null);
@@ -80,6 +82,7 @@ const InventoryManager: React.FC = () => {
               <tr>
                 <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Component Name</th>
                 <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Category</th>
+                <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Type</th>
                 <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Total Qty</th>
                 <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">Requested Qty</th>
                 <th className="p-4 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500 text-right">Actions</th>
@@ -94,7 +97,17 @@ const InventoryManager: React.FC = () => {
                       {c.category}
                     </span>
                   </td>
-                  <td className="p-4 text-gray-300 font-mono text-xs md:text-sm">{c.totalQuantity}</td>
+                  <td className="p-4">
+                    <span className={`text-[10px] md:text-xs font-bold uppercase tracking-widest border px-2 py-0.5 rounded ${c.hasQuantityLimit === false
+                        ? 'text-blue-400 border-blue-500/40'
+                        : 'text-gray-400 border-gray-700/40'
+                      }`}>
+                      {c.hasQuantityLimit === false ? 'Unlimited' : 'Limited'}
+                    </span>
+                  </td>
+                  <td className="p-4 text-gray-300 font-mono text-xs md:text-sm">
+                    {c.hasQuantityLimit === false ? '∞' : c.totalQuantity}
+                  </td>
                   <td className="p-4 text-gray-500 font-mono text-xs md:text-sm">{c.reservedQuantity}</td>
                   <td className="p-4 text-right">
                     <div className="flex gap-2 justify-end">
@@ -164,8 +177,27 @@ const InventoryManager: React.FC = () => {
                   value={editingComponent.totalQuantity}
                   onChange={(e) => setEditingComponent({ ...editingComponent, totalQuantity: parseInt(e.target.value, 10) || 0 })}
                   className="w-full bg-black border border-gray-800 rounded px-4 py-3 text-white font-mono focus:ring-1 focus:ring-amber-500 outline-none"
+                  disabled={editingComponent.hasQuantityLimit === false}
                 />
               </div>
+            </div>
+            <div className="border-t border-gray-800 pt-4">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={editingComponent.hasQuantityLimit === false}
+                  onChange={(e) => setEditingComponent({
+                    ...editingComponent,
+                    hasQuantityLimit: !e.target.checked,
+                    totalQuantity: e.target.checked ? 0 : editingComponent.totalQuantity
+                  })}
+                  className="w-5 h-5 bg-black border-2 border-gray-700 rounded checked:bg-blue-500 checked:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
+                />
+                <div>
+                  <span className="text-sm font-black text-gray-300 uppercase tracking-wide group-hover:text-blue-400 transition-colors">Unlimited Stock</span>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Component is always available (no quantity tracking)</p>
+                </div>
+              </label>
             </div>
           </div>
         )}
