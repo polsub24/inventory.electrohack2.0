@@ -1,7 +1,3 @@
-<div align="center">
-<img width="1200" height="475" alt="ELECTROHACK 2.0 Banner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
-
 # 🔧 ELECTROHACK 2.0 - Inventory Management System
 
 A modern, real-time inventory management system built for hackathon component tracking. Features team registration, component requests, admin approval workflows, and live inventory updates.
