@@ -7,10 +7,30 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
 dist
 dist-ssr
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.development
+.env.production
+.env.test
 *.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# API Keys & Credentials
+**/secrets/
+**/credentials/
+*.pem
+*.key
+*.cert
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +42,25 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OS Files
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Build artifacts
+build/
+*.tsbuildinfo
+
+# Coverage
+coverage/
+*.lcov
+.nyc_output/
