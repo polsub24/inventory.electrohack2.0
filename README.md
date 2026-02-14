@@ -197,10 +197,6 @@ Contributions are welcome! Please follow these steps:
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📝 License
-
-This project is open source and available under the [MIT License](LICENSE).
-
 ## 🐛 Troubleshooting
 
 ### Database Connection Issues
@@ -216,12 +212,6 @@ This project is open source and available under the [MIT License](LICENSE).
 - Clear node_modules and reinstall: `rm -rf node_modules && npm install`
 - Clear build cache: `rm -rf dist`
 
-## 📧 Support
-
-For issues and questions:
-- Open an issue on [GitHub Issues](https://github.com/yourusername/inventory.electrohack2.0/issues)
-- Contact the maintainers
-
 ## 🙏 Acknowledgments
 
 - Built for ELECTROHACK 2.0 by IEEE CAS
@@ -231,5 +221,5 @@ For issues and questions:
 ---
 
 <div align="center">
-Made with ❤️ for ELECTROHACK 2.0
+Made with ❤️ by IEEE CAS VIT
 </div>
