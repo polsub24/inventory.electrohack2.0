@@ -14,7 +14,7 @@ This document ensures all sensitive information is protected before making the r
 The following files contain sensitive data and are properly gitignored:
 
 - **`.env.local`** - Contains:
-  - `MONGODB_URI` - Database connection string with credentials
+  - `DATABASE_URL` - Database connection string with credentials
   - `GEMINI_API_KEY` - API key for Gemini AI services
   - `PORT` - Server port configuration
   - `NODE_ENV` - Environment setting
@@ -23,7 +23,7 @@ The following files contain sensitive data and are properly gitignored:
 - [x] No hardcoded passwords in source code
 - [x] No hardcoded API keys in source code
 - [x] No hardcoded database URIs in source code
-- [x] MongoDB URI uses environment variable (`process.env.MONGODB_URI`)
+- [x] PostgreSQL URI uses environment variable (`process.env.DATABASE_URL`)
 - [x] Server port uses environment variable with fallback
 - [x] Team passwords are auto-generated (not hardcoded)
 
@@ -126,7 +126,7 @@ If sensitive data is accidentally committed:
 
 ### Immediate Actions:
 1. **Rotate all exposed credentials immediately**
-   - Generate new MongoDB credentials
+   - Generate new PostgreSQL credentials
    - Generate new API keys
    - Update all services using old credentials
 

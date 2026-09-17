@@ -1,19 +1,34 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useInventory } from '../../context/InventoryContext';
-import { Component, ComponentCategory } from '../../types';
+import { Component, ComponentCategory, RequestStatus } from '../../types';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
 import Spinner from '../common/Spinner';
+import InputField from '../common/InputField';
+import { ComponentHolder, ComponentStillHeldError } from '../../server/api';
+
+const ACTIVE_STATUSES = [RequestStatus.Pending, RequestStatus.Modified, RequestStatus.Approved];
 
 const InventoryManager: React.FC = () => {
-  const { components, requests, upsertComponent } = useInventory();
+  const navigate = useNavigate();
+  const { components, requests, upsertComponent, deleteComponent } = useInventory();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingComponent, setEditingComponent] = useState<Partial<Component> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [viewingCollections, setViewingCollections] = useState<Component | null>(null);
+  const [deletingComponentId, setDeletingComponentId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteSuccess, setDeleteSuccess] = useState('');
+  const [blockedDeletion, setBlockedDeletion] = useState<{ component: Component; holders: ComponentHolder[] } | null>(null);
+  const [confirmingDeletion, setConfirmingDeletion] = useState<{ component: Component; activeCount: number } | null>(null);
+  const [deletedByName, setDeletedByName] = useState('');
+  const [deletedByRegNum, setDeletedByRegNum] = useState('');
 
   const openAddModal = () => {
+    setSaveError('');
     setEditingComponent({
       id: `c${Date.now()}`,
       name: '',
@@ -25,6 +40,7 @@ const InventoryManager: React.FC = () => {
   };
 
   const openEditModal = (component: Component) => {
+    setSaveError('');
     setEditingComponent({ ...component });
     setIsModalOpen(true);
   };
@@ -32,6 +48,7 @@ const InventoryManager: React.FC = () => {
   const handleSave = async () => {
     if (editingComponent && editingComponent.id && editingComponent.name && editingComponent.category) {
       setIsSaving(true);
+      setSaveError('');
       try {
         await upsertComponent({
           id: editingComponent.id,
@@ -44,36 +61,129 @@ const InventoryManager: React.FC = () => {
         setEditingComponent(null);
       } catch (error) {
         console.error("Failed to save component", error);
+        setSaveError(error instanceof Error ? error.message : 'Failed to save component.');
       } finally {
         setIsSaving(false);
       }
     }
   };
 
-  // Get teams that have collected a specific component
+  // Get teams that have collected a specific component. A single Collected
+  // request can itself be partially returned, so one request can produce up to
+  // two rows here — its still-outstanding portion (Collected) and its
+  // already-returned portion (Returned) — rather than one row keyed only on
+  // the request's overall status.
   const getTeamsWithComponent = (componentId: string) => {
-    const collectedRequests = requests.filter(r =>
+    const matchingRequests = requests.filter(r =>
       (r.status === 'COLLECTED' || r.status === 'RETURNED_TO_INVENTORY') &&
       r.items.some(item => item.componentId === componentId)
     );
 
-    return collectedRequests.map(req => ({
-      teamName: req.team.teamName,
-      leaderName: req.team.leaderName,
-      registrationNumber: req.team.registrationNumber,
-      quantity: req.items.find(item => item.componentId === componentId)?.quantity || 0,
-      status: req.status,
-      timestamp: req.timestamp
-    }));
+    const rows: { teamName: string; leaderName: string; registrationNumber: string; quantity: number; status: string; timestamp: Date }[] = [];
+    matchingRequests.forEach(req => {
+      const item = req.items.find(item => item.componentId === componentId);
+      if (!item) return;
+      const outstandingQty = item.quantity - item.returnedQuantity;
+      const base = { teamName: req.team.teamName, leaderName: req.team.leaderName, registrationNumber: req.team.registrationNumber, timestamp: req.timestamp };
+      if (outstandingQty > 0) rows.push({ ...base, quantity: outstandingQty, status: 'COLLECTED' });
+      if (item.returnedQuantity > 0) rows.push({ ...base, quantity: item.returnedQuantity, status: 'RETURNED_TO_INVENTORY' });
+    });
+    return rows;
+  };
+
+  const handleDeleteComponent = async (component: Component) => {
+    setDeleteError('');
+    setDeleteSuccess('');
+
+    // Check locally first, off the already-polled data — catches the common
+    // case instantly with no round trip. The server enforces the same rule
+    // independently in case stock moved between this check and the click.
+    const stillHeld = requests.filter(r =>
+      r.status === RequestStatus.Collected && r.items.some(item => item.componentId === component.id)
+    );
+    if (stillHeld.length > 0) {
+      setBlockedDeletion({
+        component,
+        holders: stillHeld.map(r => ({
+          requestId: r.id,
+          teamId: r.teamId,
+          teamName: r.team.teamName,
+          leaderName: r.team.leaderName,
+          registrationNumber: r.team.registrationNumber,
+          quantity: r.items.find(item => item.componentId === component.id)?.quantity ?? 0,
+          timestamp: r.timestamp.toISOString()
+        }))
+      });
+      return;
+    }
+
+    const activeCount = requests.filter(r =>
+      ACTIVE_STATUSES.includes(r.status) && r.items.some(item => item.componentId === component.id)
+    ).length;
+    setDeletedByName('');
+    setDeletedByRegNum('');
+    setConfirmingDeletion({ component, activeCount });
+  };
+
+  const closeDeleteConfirm = () => {
+    setConfirmingDeletion(null);
+    setDeleteError('');
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmingDeletion) return;
+    const name = deletedByName.trim();
+    const registrationNumber = deletedByRegNum.trim();
+    if (!name || !registrationNumber) return;
+
+    const { component } = confirmingDeletion;
+    setDeletingComponentId(component.id);
+    setDeleteError('');
+    try {
+      const result = await deleteComponent(component.id, { name, registrationNumber });
+      setConfirmingDeletion(null);
+      setDeleteSuccess(
+        result.notifiedTeams.length > 0
+          ? `"${component.name}" deleted. Notified ${result.notifiedTeams.length} team${result.notifiedTeams.length === 1 ? '' : 's'} whose request could no longer include it.`
+          : `"${component.name}" deleted.`
+      );
+    } catch (err) {
+      if (err instanceof ComponentStillHeldError) {
+        setConfirmingDeletion(null);
+        setBlockedDeletion({ component, holders: err.holders });
+      } else {
+        // Leave the confirmation card open so the admin can see the error and retry.
+        setDeleteError(err instanceof Error ? err.message : 'Failed to delete component.');
+      }
+    } finally {
+      setDeletingComponentId(null);
+    }
+  };
+
+  const goToRequest = (requestId: string) => {
+    setBlockedDeletion(null);
+    navigate(`/admin/request/${requestId}`);
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
-        <Button onClick={openAddModal} className="bg-amber-600 hover:bg-amber-500 font-black tracking-widest text-xs px-6">
+        <Button onClick={openAddModal} className="bg-emerald-500 hover:bg-emerald-400 font-black tracking-widest text-xs px-6">
           + Add New Component
         </Button>
       </div>
+
+      {deleteError && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+          <p className="text-red-400 text-xs font-bold uppercase tracking-wide">{deleteError}</p>
+        </div>
+      )}
+
+      {deleteSuccess && (
+        <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+          <p className="text-green-400 text-xs font-bold uppercase tracking-wide">{deleteSuccess}</p>
+        </div>
+      )}
 
       <Card className="border border-gray-800 bg-gray-900/20 p-0 overflow-hidden">
         <div className="overflow-x-auto">
@@ -90,10 +200,10 @@ const InventoryManager: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-800">
               {components.map((c) => (
-                <tr key={c.id} className="hover:bg-amber-500/5 transition-colors group">
+                <tr key={c.id} className="hover:bg-emerald-400/5 transition-colors group">
                   <td className="p-4 font-black text-gray-100 text-xs md:text-base">{c.name}</td>
                   <td className="p-4">
-                    <span className="text-[10px] md:text-xs font-bold text-amber-500 uppercase tracking-widest border border-amber-900/40 px-2 py-0.5 rounded">
+                    <span className="text-[10px] md:text-xs font-bold text-emerald-400 uppercase tracking-widest border border-emerald-900/40 px-2 py-0.5 rounded">
                       {c.category}
                     </span>
                   </td>
@@ -119,9 +229,16 @@ const InventoryManager: React.FC = () => {
                       </button>
                       <button
                         onClick={() => openEditModal(c)}
-                        className="text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-400 hover:text-amber-500 transition-colors"
+                        className="text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-400 hover:text-emerald-400 transition-colors"
                       >
                         Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteComponent(c)}
+                        disabled={deletingComponentId === c.id}
+                        className="text-[10px] md:text-xs font-black uppercase tracking-widest text-red-500/70 hover:text-red-400 transition-colors disabled:opacity-40"
+                      >
+                        {deletingComponentId === c.id ? <Spinner /> : 'Delete'}
                       </button>
                     </div>
                   </td>
@@ -139,7 +256,7 @@ const InventoryManager: React.FC = () => {
         footer={
           <div className="flex space-x-3">
             <Button onClick={() => setIsModalOpen(false)} variant="secondary" className="px-6" disabled={isSaving}>Cancel</Button>
-            <Button onClick={handleSave} className="px-8 bg-amber-600 hover:bg-amber-500" disabled={isSaving}>
+            <Button onClick={handleSave} className="px-8 bg-emerald-500 hover:bg-emerald-400" disabled={isSaving}>
               {isSaving ? <Spinner /> : 'Save Changes'}
             </Button>
           </div>
@@ -147,13 +264,18 @@ const InventoryManager: React.FC = () => {
       >
         {editingComponent && (
           <div className="space-y-5">
+            {saveError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <p className="text-red-400 text-xs font-bold uppercase tracking-wide">{saveError}</p>
+              </div>
+            )}
             <div>
               <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Component Name</label>
               <input
                 type="text"
                 value={editingComponent.name}
                 onChange={(e) => setEditingComponent({ ...editingComponent, name: e.target.value })}
-                className="w-full bg-black border border-gray-800 rounded px-4 py-3 text-white focus:ring-1 focus:ring-amber-500 outline-none"
+                className="w-full bg-black border border-gray-800 rounded px-4 py-3 text-white focus:ring-1 focus:ring-emerald-400 outline-none"
                 placeholder="e.g. Arduino Uno"
               />
             </div>
@@ -163,7 +285,7 @@ const InventoryManager: React.FC = () => {
                 <select
                   value={editingComponent.category}
                   onChange={(e) => setEditingComponent({ ...editingComponent, category: e.target.value as ComponentCategory })}
-                  className="w-full bg-black border border-gray-800 rounded px-4 py-3 text-white focus:ring-1 focus:ring-amber-500 outline-none uppercase text-xs font-bold"
+                  className="w-full bg-black border border-gray-800 rounded px-4 py-3 text-white focus:ring-1 focus:ring-emerald-400 outline-none uppercase text-xs font-bold"
                 >
                   {Object.values(ComponentCategory).map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
@@ -176,7 +298,7 @@ const InventoryManager: React.FC = () => {
                   type="number"
                   value={editingComponent.totalQuantity}
                   onChange={(e) => setEditingComponent({ ...editingComponent, totalQuantity: parseInt(e.target.value, 10) || 0 })}
-                  className="w-full bg-black border border-gray-800 rounded px-4 py-3 text-white font-mono focus:ring-1 focus:ring-amber-500 outline-none"
+                  className="w-full bg-black border border-gray-800 rounded px-4 py-3 text-white font-mono focus:ring-1 focus:ring-emerald-400 outline-none"
                   disabled={editingComponent.hasQuantityLimit === false}
                 />
               </div>
@@ -235,11 +357,11 @@ const InventoryManager: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-800">
                   {teams.map((team, idx) => (
-                    <tr key={idx} className="hover:bg-amber-500/5 transition-colors">
+                    <tr key={idx} className="hover:bg-emerald-400/5 transition-colors">
                       <td className="p-3 font-bold text-gray-100 text-xs">{team.teamName}</td>
                       <td className="p-3 text-gray-400 text-xs">{team.leaderName}</td>
                       <td className="p-3 text-gray-500 font-mono text-xs uppercase">{team.registrationNumber}</td>
-                      <td className="p-3 text-amber-500 font-mono text-xs font-black">{team.quantity}</td>
+                      <td className="p-3 text-emerald-400 font-mono text-xs font-black">{team.quantity}</td>
                       <td className="p-3">
                         <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${team.status === 'COLLECTED'
                           ? 'border-gray-500/30 text-gray-400'
@@ -255,9 +377,9 @@ const InventoryManager: React.FC = () => {
                   ))}
                 </tbody>
               </table>
-              <div className="mt-4 p-3 bg-amber-500/5 border border-amber-500/20 rounded">
+              <div className="mt-4 p-3 bg-emerald-400/5 border border-emerald-400/20 rounded">
                 <p className="text-xs text-gray-400">
-                  <span className="font-black text-amber-500">Total Collected:</span>{' '}
+                  <span className="font-black text-emerald-400">Total Collected:</span>{' '}
                   {teams.reduce((sum, t) => sum + (t.status === 'COLLECTED' ? t.quantity : 0), 0)} units
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
@@ -269,6 +391,130 @@ const InventoryManager: React.FC = () => {
           );
         })()}
       </Modal>
+
+      {/* Confirm Deletion Modal — requires the authorizing admin's name + reg # */}
+      {confirmingDeletion && (
+        <Modal
+          isOpen={true}
+          onClose={closeDeleteConfirm}
+          title="Confirm Deletion"
+          footer={
+            <>
+              <Button onClick={closeDeleteConfirm} variant="secondary" className="px-6" disabled={deletingComponentId === confirmingDeletion.component.id}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmDelete}
+                variant="danger"
+                className="px-8 bg-red-950/30 hover:bg-red-900 border-red-900/50 text-red-500"
+                disabled={deletingComponentId === confirmingDeletion.component.id || !deletedByName.trim() || !deletedByRegNum.trim()}
+              >
+                {deletingComponentId === confirmingDeletion.component.id ? <Spinner /> : 'Delete Resource'}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-5">
+            <p className="text-sm text-gray-400">
+              Delete "<span className="text-gray-200 font-bold">{confirmingDeletion.component.name}</span>"? This
+              cannot be undone.
+              {confirmingDeletion.activeCount > 0 && (
+                <>
+                  {' '}
+                  <span className="text-amber-400">
+                    {confirmingDeletion.activeCount} pending request{confirmingDeletion.activeCount === 1 ? '' : 's'} currently
+                    include this component and will be notified that it's no longer available.
+                  </span>
+                </>
+              )}
+            </p>
+
+            <p className="text-xs text-gray-500">
+              Record who is authorizing this deletion.
+            </p>
+
+            {deleteError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <p className="text-red-400 text-xs font-bold uppercase tracking-wide">{deleteError}</p>
+              </div>
+            )}
+
+            <InputField
+              id="deletedByName"
+              label="Name"
+              value={deletedByName}
+              onChange={(e) => setDeletedByName(e.target.value)}
+              placeholder="Full name of the admin authorizing this"
+              disabled={deletingComponentId === confirmingDeletion.component.id}
+            />
+            <InputField
+              id="deletedByRegNum"
+              label="Registration Number"
+              value={deletedByRegNum}
+              onChange={(e) => setDeletedByRegNum(e.target.value)}
+              placeholder="e.g. REG-2024-001"
+              disabled={deletingComponentId === confirmingDeletion.component.id}
+            />
+          </div>
+        </Modal>
+      )}
+
+      {/* Blocked Deletion Modal — components still out with some team */}
+      {blockedDeletion && (
+        <Modal
+          isOpen={true}
+          onClose={() => setBlockedDeletion(null)}
+          title="Cannot Delete Resource"
+          footer={
+            <Button onClick={() => setBlockedDeletion(null)} variant="secondary" className="px-6">
+              Close
+            </Button>
+          }
+        >
+          <div className="space-y-5">
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-red-400 text-xs font-bold uppercase tracking-wide">
+                "{blockedDeletion.component.name}" is still collected by {blockedDeletion.holders.length}{' '}
+                team{blockedDeletion.holders.length === 1 ? '' : 's'}. Collect it back from each team below
+                before deleting this resource.
+              </p>
+            </div>
+
+            <div className="border border-gray-800 rounded-lg overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-black/40">
+                  <tr>
+                    <th className="p-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Team</th>
+                    <th className="p-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Reg #</th>
+                    <th className="p-3 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Qty</th>
+                    <th className="p-3 text-[10px] font-black uppercase tracking-widest text-gray-500"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {blockedDeletion.holders.map((holder) => (
+                    <tr key={holder.requestId}>
+                      <td className="p-3">
+                        <p className="font-bold text-gray-100 text-xs">{holder.teamName}</p>
+                        <p className="text-[10px] text-gray-500">{holder.leaderName}</p>
+                      </td>
+                      <td className="p-3 text-gray-400 font-mono text-xs">{holder.registrationNumber}</td>
+                      <td className="p-3 text-red-400 font-mono text-xs font-black text-right">x{holder.quantity}</td>
+                      <td className="p-3 text-right">
+                        <button
+                          onClick={() => goToRequest(holder.requestId)}
+                          className="text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 transition-colors"
+                        >
+                          Reinstate →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

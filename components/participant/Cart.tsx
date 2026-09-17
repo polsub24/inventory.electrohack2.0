@@ -1,132 +1,228 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { CartItem } from '../../types';
 import { useInventory } from '../../context/InventoryContext';
 import { useAuth } from '../../context/AuthContext';
-import { useAnimation } from '../../context/AnimationContext';
-import Button from '../common/Button';
-import Spinner from '../common/Spinner';
+import { spring, STAGGER_SECONDS } from '../common/motion';
 
 interface CartProps {
   isOpen: boolean;
   onClose: () => void;
   cart: CartItem[];
   updateCartItemQuantity: (componentId: string, newQuantity: number) => void;
-  clearCart: () => void;
+  onSubmitted: () => void;
 }
 
-const Cart: React.FC<CartProps> = ({ isOpen, onClose, cart, updateCartItemQuantity, clearCart }) => {
+const EmptyCartArt: React.FC = () => (
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 120 96"
+    className="h-24 w-32"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M18 26h14l10 38h44l10-28H38" />
+    <circle cx="50" cy="76" r="5" />
+    <circle cx="80" cy="76" r="5" />
+    <path d="M66 26v14M59 33h14" strokeDasharray="3 4" />
+  </svg>
+);
+
+const Cart: React.FC<CartProps> = ({ isOpen, onClose, cart, updateCartItemQuantity, onSubmitted }) => {
   const { getComponentById, submitRequest } = useInventory();
   const { user } = useAuth();
-  const { triggerSpark } = useAnimation();
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleQuantityChange = (componentId: string, change: number) => {
-    const item = cart.find(i => i.componentId === componentId);
-    if (item) {
-      updateCartItemQuantity(componentId, item.quantity + change);
-    }
-  };
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isOpen, onClose]);
 
-  const handleRemoveItem = (componentId: string) => {
-    updateCartItemQuantity(componentId, 0);
-  };
-  
-  const handleSubmitRequest = async (event: React.MouseEvent<HTMLButtonElement>) => {
-    if (!user || cart.length === 0) return;
-    setIsLoading(true);
-    triggerSpark(event.clientX, event.clientY);
+  const totalUnits = cart.reduce((total, item) => total + item.quantity, 0);
+
+  // Stock can drop under an open cart from another client's poll — checked at
+  // render time, live, rather than only at add-to-cart, so the submit button
+  // reflects the same numbers the "Only N left" warning below is showing.
+  const hasOverAllocation = cart.some((item) => {
+    const component = getComponentById(item.componentId);
+    if (!component || component.hasQuantityLimit === false) return false;
+    return item.quantity > component.totalQuantity - component.reservedQuantity;
+  });
+
+  const handleSubmit = async () => {
+    if (!user || cart.length === 0 || hasOverAllocation || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await submitRequest(user.id, cart);
-      setIsSubmitted(true);
-      setTimeout(() => {
-        clearCart();
-        setIsSubmitted(false);
-        onClose();
-      }, 2000);
+      onSubmitted();
     } catch (error) {
-      console.error("Failed to submit request", error);
+      console.error('Failed to submit request', error);
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  const cartTotalItems = cart.reduce((total, item) => total + item.quantity, 0);
-
-  if (!isOpen) return null;
+  const panelHidden = reduceMotion
+    ? { opacity: 0, transform: 'translateX(0%)' }
+    : { opacity: 1, transform: 'translateX(100%)' };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex justify-end" onClick={onClose}>
-      <div 
-        className="w-full max-w-md bg-gray-950 border-l border-amber-900/30 shadow-2xl h-full flex flex-col transform transition-transform duration-300 translate-x-0"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center p-6 border-b border-gray-900">
-          <h2 className="text-sm font-black uppercase tracking-[0.2em] text-amber-500 italic">Request Cart</h2>
-          <button onClick={onClose} className="p-1 rounded-full text-gray-500 hover:text-amber-500 transition-colors">
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
-        
-        <div className="flex-grow overflow-y-auto p-6">
-          {isSubmitted ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-                <div className="p-4 rounded-full bg-green-500/10 border border-green-500/30 mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-                <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">Request Transmitted</h3>
-                <p className="text-gray-500 text-xs mt-2 uppercase tracking-widest">Awaiting admin review and approval</p>
-            </div>
-          ) : cart.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full opacity-30">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <p className="text-xs uppercase tracking-[0.2em] font-black">Your cart is empty</p>
-            </div>
-          ) : (
-            <ul className="space-y-4">
-              {cart.map(item => {
-                const component = getComponentById(item.componentId);
-                if (!component) return null;
-                const available = component.totalQuantity - component.reservedQuantity;
-                const max = available;
-                return (
-                  <li key={item.componentId} className="flex items-center justify-between bg-black/40 border border-gray-900 p-4 rounded-lg">
-                    <div className="flex-1 mr-4">
-                      <p className="font-bold text-gray-100 text-sm uppercase">{component.name}</p>
-                      <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">{component.category}</p>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <button onClick={() => updateCartItemQuantity(item.componentId, Math.max(1, item.quantity - 1))} className="w-8 h-8 rounded border border-gray-800 flex items-center justify-center hover:bg-gray-800 transition-colors">-</button>
-                      <span className="font-mono font-bold text-amber-500 w-6 text-center">{item.quantity}</span>
-                      <button onClick={() => updateCartItemQuantity(item.componentId, Math.min(max, item.quantity + 1))} disabled={item.quantity >= max} className="w-8 h-8 rounded border border-gray-800 flex items-center justify-center hover:bg-gray-800 transition-colors disabled:opacity-30">+</button>
-                      <button onClick={() => handleRemoveItem(item.componentId)} className="text-gray-600 hover:text-red-500 transition-colors ml-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Request cart">
+          <motion.div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={spring.drawerOut}
+            onClick={onClose}
+          />
 
-        {!isSubmitted && cart.length > 0 && (
-          <div className="p-6 border-t border-gray-900 bg-black/20">
-            <div className="flex justify-between items-center mb-6">
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Allocation Total</span>
-              <span className="text-2xl font-black text-amber-500">{cartTotalItems} Units</span>
+          <motion.aside
+            className="relative flex h-full w-full max-w-md flex-col border-l border-white/10 bg-[#07100c]/80 backdrop-blur-2xl"
+            initial={panelHidden}
+            animate={{ opacity: 1, transform: 'translateX(0%)' }}
+            exit={panelHidden}
+            transition={spring.drawerIn}
+          >
+            <header className="flex items-center justify-between border-b border-white/10 px-6 py-5">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-300">Request Cart</h2>
+              <motion.button
+                type="button"
+                onClick={onClose}
+                aria-label="Close cart"
+                whileTap={{ scale: 0.97 }}
+                transition={spring.press}
+                className="rounded-md p-1 text-zinc-500 hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </motion.button>
+            </header>
+
+            <div className="flex-grow overflow-y-auto px-6 py-5">
+              {cart.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center text-zinc-700">
+                  <EmptyCartArt />
+                  <p className="mt-5 text-xs uppercase tracking-[0.2em] text-zinc-600">Your cart is empty</p>
+                </div>
+              ) : (
+                <motion.ul
+                  className="space-y-3"
+                  initial="hidden"
+                  animate="visible"
+                  variants={{ hidden: {}, visible: { transition: { staggerChildren: STAGGER_SECONDS } } }}
+                >
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {cart.map((item) => {
+                      // Read through to context on every render: stock moves under
+                      // the drawer while it is open, and the cart must show that.
+                      const component = getComponentById(item.componentId);
+                      const isUnlimited = component?.hasQuantityLimit === false;
+                      const available = component ? component.totalQuantity - component.reservedQuantity : 0;
+                      const overAllocated = !!component && !isUnlimited && item.quantity > available;
+
+                      return (
+                        <motion.li
+                          key={item.componentId}
+                          layout
+                          variants={{ hidden: { opacity: 0, scale: 0.98 }, visible: { opacity: 1, scale: 1 } }}
+                          exit={{ opacity: 0, scale: 0.98 }}
+                          transition={spring.standard}
+                          className="rounded-lg border border-white/10 bg-white/5 p-4"
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-zinc-100">
+                                {component ? component.name : 'Component no longer available'}
+                              </p>
+                              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-600">
+                                {component
+                                  ? `${component.category} · ${isUnlimited ? '∞' : available} available`
+                                  : 'Removed from inventory'}
+                              </p>
+                            </div>
+                            <div className="flex flex-shrink-0 items-center gap-1">
+                              <motion.button
+                                type="button"
+                                onClick={() => updateCartItemQuantity(item.componentId, item.quantity - 1)}
+                                aria-label={`Remove one ${component?.name ?? 'item'}`}
+                                whileTap={{ scale: 0.97 }}
+                                transition={spring.press}
+                                className="h-8 w-8 rounded-md text-zinc-400 hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
+                              >
+                                –
+                              </motion.button>
+                              <span className="w-8 text-center font-mono text-sm tabular-nums text-white">
+                                {item.quantity}
+                              </span>
+                              <motion.button
+                                type="button"
+                                onClick={() => updateCartItemQuantity(item.componentId, item.quantity + 1)}
+                                disabled={!component || (!isUnlimited && item.quantity >= available)}
+                                aria-label={`Add one ${component?.name ?? 'item'}`}
+                                whileTap={{ scale: 0.97 }}
+                                transition={spring.press}
+                                className="h-8 w-8 rounded-md text-zinc-400 disabled:text-zinc-700 enabled:hover:bg-white/5 enabled:hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
+                              >
+                                +
+                              </motion.button>
+                            </div>
+                          </div>
+                          {overAllocated && (
+                            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-amber-500">
+                              Only {available} left — reduce to submit
+                            </p>
+                          )}
+                        </motion.li>
+                      );
+                    })}
+                  </AnimatePresence>
+                </motion.ul>
+              )}
             </div>
-            <Button className="w-full py-4 bg-amber-600 hover:bg-amber-500 text-black font-black uppercase tracking-widest shadow-lg shadow-amber-600/10" onClick={handleSubmitRequest} disabled={isLoading || cart.length === 0}>
-              {isLoading ? <Spinner /> : 'Transmit Official Request'}
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
+
+            <footer className="border-t border-white/10 px-6 py-5">
+              <div className="mb-5 flex items-center justify-between">
+                <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-500">
+                  Allocation Total
+                </span>
+                <span className="font-mono text-2xl font-medium tabular-nums text-white">{totalUnits}</span>
+              </div>
+              <motion.button
+                type="button"
+                onClick={handleSubmit}
+                disabled={cart.length === 0 || hasOverAllocation || isSubmitting}
+                whileTap={cart.length === 0 || hasOverAllocation || isSubmitting ? undefined : { scale: 0.97 }}
+                transition={spring.press}
+                className={`w-full rounded-lg py-3.5 text-xs font-semibold uppercase tracking-[0.2em] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-500 ${
+                  cart.length === 0 || hasOverAllocation || isSubmitting
+                    ? 'bg-white/5 text-zinc-500'
+                    : 'bg-emerald-500 text-black hover:bg-emerald-400'
+                }`}
+              >
+                {isSubmitting ? 'Transmitting…' : hasOverAllocation ? 'Reduce Over-Allocated Items' : 'Transmit Request'}
+              </motion.button>
+            </footer>
+          </motion.aside>
+        </div>
+      )}
+    </AnimatePresence>
   );
 };
 

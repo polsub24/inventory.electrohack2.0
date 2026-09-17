@@ -3,13 +3,25 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/jpeg" href="/assets/logo-new.jpg" />
+  <link rel="icon" type="image/png" href="/embed%20control%207.0%20logo.png" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>ELECTROHACK 2.0 | Inventory</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Orbitron:wght@400;700;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
     * {
       margin: 0;
@@ -19,69 +31,17 @@
 
     html {
       scroll-behavior: smooth;
-      background-color: #050505;
+      background-color: #050806;
     }
 
     body {
       font-family: 'Inter', sans-serif;
-      background-color: #050505;
+      background-color: #050806;
       color: #ffffff;
       overflow-x: hidden;
       position: relative;
     }
 
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
-      font-family: 'Orbitron', sans-serif;
-    }
-
-    /* Background gradient overlay */
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle at 20% 50%, rgba(255, 140, 0, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(112, 0, 255, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 40% 20%, rgba(0, 212, 255, 0.1) 0%, transparent 50%);
-      pointer-events: none;
-      z-index: 0;
-      animation: pulseGlow 8s ease-in-out infinite;
-    }
-
-    @keyframes pulseGlow {
-
-      0%,
-      100% {
-        opacity: 0.5;
-      }
-
-      50% {
-        opacity: 0.8;
-      }
-    }
-
-    /* Circuit board pattern overlay */
-    body::after {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-image:
-        linear-gradient(90deg, rgba(255, 140, 0, 0.02) 1px, transparent 1px),
-        linear-gradient(rgba(255, 140, 0, 0.02) 1px, transparent 1px);
-      background-size: 50px 50px;
-      pointer-events: none;
-      z-index: 0;
-    }
 
     .bg-noise {
       position: fixed;
@@ -171,24 +131,6 @@
       animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
 
-    @keyframes pulse-orange {
-
-      0%,
-      100% {
-        color: white;
-        text-shadow: 0 0 0 rgba(255, 140, 0, 0);
-      }
-
-      50% {
-        color: #FF8C00;
-        text-shadow: 0 0 20px rgba(255, 140, 0, 0.6);
-      }
-    }
-
-    .highlight-pulse {
-      animation: pulse-orange 1.5s ease-in-out;
-    }
-
     @keyframes spark-burst {
       0% {
         transform: scale(0.5);
@@ -233,7 +175,7 @@
     }
 
     ::-webkit-scrollbar-track {
-      background: #050505;
+      background: #050806;
     }
 
     ::-webkit-scrollbar-thumb {
@@ -243,7 +185,7 @@
     }
 
     ::-webkit-scrollbar-thumb:hover {
-      background: #FF8C00;
+      background: #52525b;
     }
 
     input[type=number] {
@@ -266,49 +208,6 @@
       scrollbar-width: none;
     }
 
-    /* Glowing text effect for headings */
-    .glow-text {
-      text-shadow: 0 0 10px rgba(255, 140, 0, 0.5),
-        0 0 20px rgba(255, 140, 0, 0.3),
-        0 0 30px rgba(255, 140, 0, 0.2);
-    }
-
-    /* Utility classes matching ELECTROHACK */
-    .text-primary {
-      color: #FF8C00;
-    }
-
-    .text-secondary {
-      color: #00D4FF;
-    }
-
-    .text-accent {
-      color: #7000FF;
-    }
-
-    .bg-primary {
-      background-color: #FF8C00;
-    }
-
-    .bg-secondary {
-      background-color: #00D4FF;
-    }
-
-    .bg-accent {
-      background-color: #7000FF;
-    }
-
-    .border-primary {
-      border-color: #FF8C00;
-    }
-
-    .border-secondary {
-      border-color: #00D4FF;
-    }
-
-    .border-accent {
-      border-color: #7000FF;
-    }
   </style>
   <script type="importmap">
 {
@@ -328,10 +227,9 @@
   }
 }
 </script>
-  <link rel="stylesheet" href="/index.css">
 </head>
 
-<body class="text-white selection:bg-primary/30 selection:text-white overflow-x-hidden antialiased">
+<body class="text-white selection:bg-white/20 selection:text-white overflow-x-hidden antialiased">
   <div class="bg-noise"></div>
   <div id="root" class="relative z-10"></div>
   <script type="module" src="/index.tsx"></script>

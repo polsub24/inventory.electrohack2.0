@@ -21,10 +21,10 @@ const Button: React.FC<ButtonProps> = ({
   };
 
   const variantClasses = {
-    primary: 'bg-amber-500 text-black hover:bg-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] border border-amber-400',
+    primary: 'bg-emerald-400 text-black hover:bg-emerald-300 shadow-[0_0_15px_rgba(52,211,153,0.3)] hover:shadow-[0_0_20px_rgba(52,211,153,0.5)] border border-emerald-300',
     secondary: 'bg-white/5 text-gray-200 hover:bg-white/10 hover:text-white border border-white/10 backdrop-blur-sm',
     danger: 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40',
-    ghost: 'bg-transparent text-gray-400 hover:text-amber-500 hover:bg-amber-500/5',
+    ghost: 'bg-transparent text-gray-400 hover:text-emerald-400 hover:bg-emerald-400/5',
   };
 
   return (

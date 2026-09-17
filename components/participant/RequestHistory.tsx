@@ -39,7 +39,7 @@ const RequestHistory: React.FC = () => {
       onClick={() => setActiveTab(tab)}
       className={`flex-1 py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all duration-200 border-b-2 ${
         activeTab === tab 
-          ? 'bg-amber-500/5 text-amber-500 border-amber-500' 
+          ? 'bg-emerald-400/5 text-emerald-400 border-emerald-400' 
           : 'text-gray-500 hover:text-gray-300 border-transparent'
       }`}
     >
@@ -68,14 +68,14 @@ const RequestHistory: React.FC = () => {
                   return (
                     <li key={item.componentId} className="flex justify-between text-[11px] sm:text-xs">
                       <span className="text-gray-300 line-clamp-1 mr-2">{component?.name || 'Unknown Item'}</span>
-                      <span className="text-amber-500 font-black flex-shrink-0">x{item.quantity}</span>
+                      <span className="text-emerald-400 font-black flex-shrink-0">x{item.quantity}</span>
                     </li>
                   );
                 })}
               </ul>
               {req.notes && (
                 <div className="mt-3 pt-3 border-t border-gray-800/50">
-                  <p className="text-[9px] uppercase font-black text-amber-500/80">Staff Note:</p>
+                  <p className="text-[9px] uppercase font-black text-emerald-400/80">Staff Note:</p>
                   <p className="text-[10px] sm:text-xs text-gray-400 italic mt-1 leading-relaxed">"{req.notes}"</p>
                 </div>
               )}

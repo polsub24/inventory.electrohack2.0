@@ -1,7 +1,7 @@
 import React from 'react';
 import { useInventory } from '../../context/InventoryContext';
 import { useAuth } from '../../context/AuthContext';
-import { RequestStatus } from '../../types';
+import { Component, RequestStatus } from '../../types';
 import Card from '../common/Card';
 
 const CollectedComponents: React.FC = () => {
@@ -10,31 +10,37 @@ const CollectedComponents: React.FC = () => {
 
     if (!user) return null;
 
-    // Get all collected and returned components for this team
+    // Get all collected and returned components for this team. A single
+    // Collected request can itself be partially returned — some units still
+    // held, some already back — so this sums per item (quantity -
+    // returnedQuantity) into "collected" and returnedQuantity into "returned",
+    // rather than bucketing whole requests by status.
     const teamRequests = requests.filter(r =>
         r.teamId === user.id &&
         (r.status === RequestStatus.Collected || r.status === RequestStatus.Returned)
     );
 
-    const collected: { [key: string]: { component: any, quantity: number } } = {};
-    const returned: { [key: string]: { component: any, quantity: number } } = {};
+    const collected: { [key: string]: { component: Component, quantity: number } } = {};
+    const returned: { [key: string]: { component: Component, quantity: number } } = {};
 
     teamRequests.forEach(req => {
         req.items.forEach(item => {
             const comp = components.find(c => c.id === item.componentId);
             if (!comp) return;
 
-            if (req.status === RequestStatus.Collected) {
+            const outstandingQty = item.quantity - item.returnedQuantity;
+            if (outstandingQty > 0) {
                 if (collected[item.componentId]) {
-                    collected[item.componentId].quantity += item.quantity;
+                    collected[item.componentId].quantity += outstandingQty;
                 } else {
-                    collected[item.componentId] = { component: comp, quantity: item.quantity };
+                    collected[item.componentId] = { component: comp, quantity: outstandingQty };
                 }
-            } else if (req.status === RequestStatus.Returned) {
+            }
+            if (item.returnedQuantity > 0) {
                 if (returned[item.componentId]) {
-                    returned[item.componentId].quantity += item.quantity;
+                    returned[item.componentId].quantity += item.returnedQuantity;
                 } else {
-                    returned[item.componentId] = { component: comp, quantity: item.quantity };
+                    returned[item.componentId] = { component: comp, quantity: item.returnedQuantity };
                 }
             }
         });
@@ -82,7 +88,7 @@ const CollectedComponents: React.FC = () => {
                                     <tr key={idx} className="hover:bg-green-500/5 transition-colors">
                                         <td className="p-4 font-black text-gray-100 text-xs md:text-base">{item.component.name}</td>
                                         <td className="p-4">
-                                            <span className="text-[10px] md:text-xs font-bold text-amber-500 uppercase tracking-widest border border-amber-900/40 px-2 py-0.5 rounded">
+                                            <span className="text-[10px] md:text-xs font-bold text-emerald-400 uppercase tracking-widest border border-emerald-900/40 px-2 py-0.5 rounded">
                                                 {item.component.category}
                                             </span>
                                         </td>
@@ -120,7 +126,7 @@ const CollectedComponents: React.FC = () => {
                                     <tr key={idx} className="hover:bg-blue-500/5 transition-colors">
                                         <td className="p-4 font-black text-gray-100 text-xs md:text-base">{item.component.name}</td>
                                         <td className="p-4">
-                                            <span className="text-[10px] md:text-xs font-bold text-amber-500 uppercase tracking-widest border border-amber-900/40 px-2 py-0.5 rounded">
+                                            <span className="text-[10px] md:text-xs font-bold text-emerald-400 uppercase tracking-widest border border-emerald-900/40 px-2 py-0.5 rounded">
                                                 {item.component.category}
                                             </span>
                                         </td>

@@ -14,11 +14,16 @@ interface InventoryContextType {
   approveRequest: (requestId: string) => Promise<Request>;
   rejectRequest: (requestId: string) => Promise<Request>;
   releaseComponents: (requestId: string) => Promise<Request>;
-  reinstateInventory: (requestId: string) => Promise<Request>;
-  deleteRequest: (requestId: string) => Promise<void>;
+  reinstateInventory: (
+    requestId: string,
+    returnedBy: { name: string; registrationNumber: string },
+    items?: { componentId: string; quantity: number }[]
+  ) => Promise<Request>;
+  deleteRequest: (requestId: string, deletedBy: { name: string; registrationNumber: string }) => Promise<void>;
   getComponentById: (id: string) => Component | undefined;
   getRequestsForTeam: (teamId: string) => Request[];
   upsertComponent: (componentData: Omit<Component, 'reservedQuantity'>) => Promise<Component>;
+  deleteComponent: (componentId: string, deletedBy: { name: string; registrationNumber: string }) => Promise<{ message: string; notifiedTeams: { requestId: string; teamName: string; quantity: number }[] }>;
 }
 
 const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
@@ -98,14 +103,18 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
     return updatedRequest;
   };
 
-  const reinstateInventory = async (requestId: string) => {
-    const updatedRequest = await api.reinstateInventory(requestId);
+  const reinstateInventory = async (
+    requestId: string,
+    returnedBy: { name: string; registrationNumber: string },
+    items?: { componentId: string; quantity: number }[]
+  ) => {
+    const updatedRequest = await api.reinstateInventory(requestId, returnedBy, items);
     await refreshData();
     return updatedRequest;
   };
 
-  const deleteRequest = async (requestId: string) => {
-    await api.deleteRequest(requestId);
+  const deleteRequest = async (requestId: string, deletedBy: { name: string; registrationNumber: string }) => {
+    await api.deleteRequest(requestId, deletedBy);
     await refreshData();
   };
 
@@ -115,11 +124,17 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
     return savedComponent;
   };
 
+  const deleteComponent = async (componentId: string, deletedBy: { name: string; registrationNumber: string }) => {
+    const result = await api.deleteComponent(componentId, deletedBy);
+    await refreshData();
+    return result;
+  };
+
   return (
     <InventoryContext.Provider value={{
       components, teams, requests, isLoading, lastSync, refreshData, getComponentById,
       getRequestsForTeam,
-      submitRequest, updateRequestByAdmin, approveRequest, rejectRequest, releaseComponents, reinstateInventory, deleteRequest, upsertComponent
+      submitRequest, updateRequestByAdmin, approveRequest, rejectRequest, releaseComponents, reinstateInventory, deleteRequest, upsertComponent, deleteComponent
     }}>
       {children}
     </InventoryContext.Provider>

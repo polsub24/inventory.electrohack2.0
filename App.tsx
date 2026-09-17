@@ -9,7 +9,7 @@ import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminRequestDetailPage from './pages/AdminRequestDetailPage';
 import Header from './components/common/Header';
-import BackgroundLines from './components/common/BackgroundLines';
+import GalaxyBackground from './components/common/GalaxyBackground';
 import { UserRole } from './types';
 
 const App: React.FC = () => {
@@ -19,7 +19,7 @@ const App: React.FC = () => {
         <AnimationProvider>
           <HashRouter>
             <div className="min-h-screen flex flex-col relative overflow-hidden">
-              <BackgroundLines />
+              <GalaxyBackground />
               <Header />
               <main className="flex-grow container mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-20 sm:pt-24 z-10">
                 <AppRoutes />

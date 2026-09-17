@@ -5,10 +5,14 @@ import api from '../server/api';
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  registerParticipant: (teamData: { teamName: string; leaderName: string; registrationNumber: string; }) => Promise<Team>;
+  // Set when the server rejects an admin-authenticated request (expired/revoked
+  // token) and the user is force-logged-out as a result. AdminLoginPage reads
+  // and clears this to explain why the screen bounced back to the login form.
+  adminAuthMessage: string | null;
   loginParticipant: (teamName: string, password: string) => Promise<Team>;
   loginAdmin: () => void;
   logout: () => void;
+  clearAdminAuthMessage: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,6 +30,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [adminAuthMessage, setAdminAuthMessage] = useState<string | null>(null);
+
+  // If any admin-authenticated request comes back 401 (token expired, revoked,
+  // or never made it into sessionStorage after login), force the session back
+  // to logged-out with an explanation instead of leaving admin actions
+  // silently doing nothing forever.
+  useEffect(() => {
+    api.setAdminUnauthorizedHandler(() => {
+      setAdminAuthMessage('Your admin session has expired. Please log in again.');
+      setUser((current) => (current?.role === UserRole.Admin ? null : current));
+    });
+    return () => api.setAdminUnauthorizedHandler(null);
+  }, []);
 
   useEffect(() => {
     try {
@@ -38,25 +55,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error("Error writing user to session storage", error);
     }
   }, [user]);
-
-  const registerParticipant = useCallback(async (teamData: { teamName: string; leaderName: string; registrationNumber: string; }) => {
-    setIsLoading(true);
-    try {
-      const team = await api.registerTeam(teamData);
-      const participantUser: User = {
-        id: team.id,
-        name: `${team.teamName} (${team.leaderName})`,
-        role: UserRole.Participant,
-      };
-      setUser(participantUser);
-      return team;
-    } catch (error) {
-      console.error("Participant registration failed", error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
 
   const loginParticipant = useCallback(async (teamName: string, password: string) => {
     setIsLoading(true);
@@ -88,11 +86,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = () => {
+    if (user?.role === UserRole.Admin) {
+      void api.logoutAdmin();
+    }
     setUser(null);
   };
 
+  const clearAdminAuthMessage = () => setAdminAuthMessage(null);
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, registerParticipant, loginParticipant, loginAdmin, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, adminAuthMessage, loginParticipant, loginAdmin, logout, clearAdminAuthMessage }}>
       {children}
     </AuthContext.Provider>
   );

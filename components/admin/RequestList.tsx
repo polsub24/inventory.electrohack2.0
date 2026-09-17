@@ -5,13 +5,15 @@ import { useAnimation } from '../../context/AnimationContext';
 import { RequestStatus } from '../../types';
 import Card from '../common/Card';
 import StatusBadge from '../common/StatusBadge';
+import { exportRequestsReport } from '../../utils/excelExport';
 
 interface RequestListProps {
   statuses: RequestStatus[];
   emptyMessage: string;
+  exportLabel: string;
 }
 
-const RequestList: React.FC<RequestListProps> = ({ statuses, emptyMessage }) => {
+const RequestList: React.FC<RequestListProps> = ({ statuses, emptyMessage, exportLabel }) => {
   const { requests } = useInventory();
   const { triggerSpark } = useAnimation();
   const navigate = useNavigate();
@@ -69,6 +71,18 @@ const RequestList: React.FC<RequestListProps> = ({ statuses, emptyMessage }) => 
   }
 
   return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <button
+          onClick={() => exportRequestsReport(filteredRequests, exportLabel)}
+          className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-emerald-400 border border-white/10 hover:border-emerald-900/40 rounded px-3 py-1.5 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Export to Excel
+        </button>
+      </div>
     <Card className="border border-white/5 bg-gray-900/20 p-0 overflow-hidden backdrop-blur-sm">
       <div className="overflow-x-auto scrollbar-thin">
         <table className="w-full text-left min-w-[700px]">
@@ -87,7 +101,7 @@ const RequestList: React.FC<RequestListProps> = ({ statuses, emptyMessage }) => 
               <tr 
                 key={req.id} 
                 ref={rowRefs.current.get(req.id)}
-                className={`group transition-all duration-300 ${newRequestIds.has(req.id) ? 'bg-amber-500/10' : 'hover:bg-white/5'}`}
+                className={`group transition-all duration-300 ${newRequestIds.has(req.id) ? 'bg-emerald-400/10' : 'hover:bg-white/5'}`}
               >
                 <td className="p-4 font-bold text-gray-100 text-xs md:text-base">{req.team.teamName}</td>
                 <td className="p-4 text-gray-400 text-xs md:text-sm">{req.team.leaderName}</td>
@@ -97,7 +111,7 @@ const RequestList: React.FC<RequestListProps> = ({ statuses, emptyMessage }) => 
                 <td className="p-4 text-right">
                   <button
                     onClick={() => navigate(`/admin/request/${req.id}`)}
-                    className="text-[10px] font-bold uppercase tracking-widest text-amber-500 hover:text-white border border-amber-500/30 hover:bg-amber-500 px-3 py-1.5 rounded transition-all opacity-80 group-hover:opacity-100"
+                    className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 hover:text-white border border-emerald-400/30 hover:bg-emerald-400 px-3 py-1.5 rounded transition-all opacity-80 group-hover:opacity-100"
                   >
                     View
                   </button>
@@ -108,6 +122,7 @@ const RequestList: React.FC<RequestListProps> = ({ statuses, emptyMessage }) => 
         </table>
       </div>
     </Card>
+    </div>
   );
 };
 

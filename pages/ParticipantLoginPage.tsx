@@ -31,10 +31,10 @@ const ParticipantLoginPage: React.FC = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
-      <Card className="w-full max-w-md border-t-4 border-t-amber-500 shadow-2xl">
+      <Card className="w-full max-w-md border-t-4 border-t-emerald-400 shadow-2xl z-10">
         <div className="flex flex-col items-center mb-8 pt-2">
-          <div className="w-12 h-12 mb-4 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="w-12 h-12 mb-4 rounded-full bg-emerald-400/10 flex items-center justify-center border border-emerald-400/20">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
             </svg>
           </div>
@@ -74,7 +74,7 @@ const ParticipantLoginPage: React.FC = () => {
         </form>
       </Card>
 
-      <p className="mt-6 text-[10px] text-gray-600 uppercase tracking-widest font-bold">Protected System • Authorized Personnel Only</p>
+      <p className="relative z-10 mt-6 text-[10px] text-gray-600 uppercase tracking-widest font-bold">Protected System • Authorized Personnel Only</p>
     </div>
   );
 };

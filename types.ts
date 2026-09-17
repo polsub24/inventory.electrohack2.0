@@ -10,12 +10,23 @@ export interface User {
   role: UserRole;
 }
 
+export interface TeamMember {
+  id: string;
+  name: string;
+  registrationNumber: string;
+  addedAt: string;
+}
+
 export interface Team {
   id: string;
   teamName: string;
   leaderName: string;
   registrationNumber: string;
   password?: string; // Only returned during registration
+  members: TeamMember[];
+  // Once true, only an admin (not the team's own login) can add/remove members —
+  // set by the team finalizing its roster at 3-4 total participants (leader + members).
+  rosterLocked: boolean;
 }
 
 export enum ComponentCategory {
@@ -51,6 +62,11 @@ export enum RequestStatus {
 export interface RequestItem {
   componentId: string;
   quantity: number;
+  // Cumulative units of `quantity` returned so far — a request can be partially
+  // returned (some units back, some still with the team) before its status
+  // flips from Collected to Returned, which only happens once every item's
+  // returnedQuantity reaches its quantity.
+  returnedQuantity: number;
   component: Component;
 }
 

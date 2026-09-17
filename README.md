@@ -36,7 +36,7 @@ A modern, real-time inventory management system built for hackathon component tr
 
 **Backend:**
 - Node.js with Express.js
-- MongoDB with Mongoose ODM
+- PostgreSQL with the `pg` driver
 - RESTful API architecture
 - CORS enabled for cross-origin requests
 
@@ -49,9 +49,9 @@ A modern, real-time inventory management system built for hackathon component tr
 
 Before you begin, ensure you have the following installed:
 - **Node.js** (v16 or higher) - [Download here](https://nodejs.org/)
-- **MongoDB** - Either:
-  - [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) (recommended for production)
-  - [Local MongoDB installation](https://www.mongodb.com/try/download/community)
+- **PostgreSQL** - Either:
+  - A managed instance (e.g. [Neon](https://neon.tech/), [Supabase](https://supabase.com/), [Render](https://render.com/)) (recommended for production)
+  - [Local PostgreSQL installation](https://www.postgresql.org/download/)
 - **Git** - [Download here](https://git-scm.com/)
 
 ## 🚀 Quick Start
@@ -80,8 +80,8 @@ cp .env.example .env.local
 Edit `.env.local` and add your configuration:
 
 ```env
-# MongoDB Connection String
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/electrohack?retryWrites=true&w=majority
+# PostgreSQL Connection String
+DATABASE_URL=postgresql://username:password@host:5432/electrohack
 
 # Optional: Gemini API Key (if using AI features)
 GEMINI_API_KEY=your_api_key_here
@@ -93,11 +93,11 @@ PORT=3000
 NODE_ENV=development
 ```
 
-**Getting MongoDB URI:**
-1. Create a free account at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
-2. Create a new cluster
-3. Click "Connect" → "Connect your application"
-4. Copy the connection string and replace `<username>` and `<password>` with your credentials
+The server automatically creates its tables (`components`, `teams`, `requests`, `request_items`) on first startup — no separate migration step needed. For a local Postgres install, create the database first:
+
+```bash
+createdb electrohack
+```
 
 ### 4. Run the Application
 
@@ -149,7 +149,7 @@ inventory.electrohack2.0/
 - ✅ All sensitive data is stored in `.env.local` (gitignored)
 - ✅ `.env.example` provides a template without real credentials
 - ✅ Passwords are auto-generated for teams (8-character alphanumeric)
-- ✅ MongoDB connection strings are environment variables
+- ✅ PostgreSQL connection strings are environment variables
 - ✅ API keys are never hardcoded in source files
 
 **Before making your repository public:**
@@ -200,9 +200,10 @@ Contributions are welcome! Please follow these steps:
 ## 🐛 Troubleshooting
 
 ### Database Connection Issues
-- Verify your `MONGODB_URI` is correct
-- Check MongoDB Atlas IP whitelist (allow `0.0.0.0/0` for testing)
+- Verify your `DATABASE_URL` is correct
+- If using a managed Postgres provider, check its IP allowlist / SSL requirements
 - Ensure your database user has read/write permissions
+- Confirm the target database exists (`createdb electrohack`)
 
 ### Port Already in Use
 - Change the `PORT` in `.env.local` to a different value

@@ -3,18 +3,21 @@ import DashboardMetrics from '../components/admin/DashboardMetrics';
 import RequestList from '../components/admin/RequestList';
 import InventoryManager from '../components/admin/InventoryManager';
 import TeamManager from '../components/admin/TeamManager';
+import AuditLog from '../components/admin/AuditLog';
 import { RequestStatus } from '../types';
 import { useInventory } from '../context/InventoryContext';
 
+type Tab = 'active' | 'approved' | 'released' | 'inventory' | 'register' | 'teams' | 'audit';
+
 const AdminDashboardPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'active' | 'approved' | 'released' | 'inventory' | 'register' | 'teams'>('active');
+  const [activeTab, setActiveTab] = useState<Tab>('active');
   const { lastSync } = useInventory();
 
-  const TabButton: React.FC<{ tab: 'active' | 'approved' | 'released' | 'inventory' | 'register' | 'teams', label: string }> = ({ tab, label }) => (
+  const TabButton: React.FC<{ tab: Tab, label: string }> = ({ tab, label }) => (
     <button
       onClick={() => setActiveTab(tab)}
       className={`whitespace-nowrap py-4 px-6 sm:px-10 font-black text-xs sm:text-sm uppercase tracking-widest transition-all duration-200 focus:outline-none border-b-2 ${activeTab === tab
-        ? 'border-amber-500 text-amber-500 bg-amber-500/5'
+        ? 'border-emerald-400 text-emerald-400 bg-emerald-400/5'
         : 'border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/30'
         }`}
     >
@@ -26,15 +29,15 @@ const AdminDashboardPage: React.FC = () => {
     <div className="space-y-6 sm:space-y-12 pb-16">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-4xl font-black text-amber-500 uppercase italic tracking-tighter">Admin Dashboard</h1>
+          <h1 className="text-2xl sm:text-4xl font-black text-emerald-400 uppercase italic tracking-tighter">Admin Dashboard</h1>
           <p className="text-[10px] text-gray-500 uppercase tracking-[0.3em] mt-1 font-bold">Resource Control & Monitoring</p>
         </div>
-        <div className="flex items-center space-x-2 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20">
+        <div className="flex items-center space-x-2 bg-emerald-400/10 px-3 py-1.5 rounded-full border border-emerald-400/20">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
           </span>
-          <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Live Sync: {lastSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+          <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Live Sync: {lastSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
         </div>
       </div>
 
@@ -48,23 +51,24 @@ const AdminDashboardPage: React.FC = () => {
             <TabButton tab="released" label="History" />
             <TabButton tab="inventory" label="Manage Resources" />
             <TabButton tab="teams" label="Manage Teams" />
+            <TabButton tab="audit" label="Audit Log" />
           </nav>
         </div>
 
         <div className="mt-6 sm:mt-10">
           {activeTab === 'active' && (
             <div className="fade-in">
-              <RequestList statuses={[RequestStatus.Pending, RequestStatus.Modified]} emptyMessage="No incoming requests found." />
+              <RequestList statuses={[RequestStatus.Pending, RequestStatus.Modified]} emptyMessage="No incoming requests found." exportLabel="Queue" />
             </div>
           )}
           {activeTab === 'approved' && (
             <div className="fade-in">
-              <RequestList statuses={[RequestStatus.Approved]} emptyMessage="No approved requests awaiting collection." />
+              <RequestList statuses={[RequestStatus.Approved]} emptyMessage="No approved requests awaiting collection." exportLabel="Approved Requests" />
             </div>
           )}
           {activeTab === 'released' && (
             <div className="fade-in">
-              <RequestList statuses={[RequestStatus.Collected, RequestStatus.Returned]} emptyMessage="No release history available." />
+              <RequestList statuses={[RequestStatus.Collected, RequestStatus.Returned]} emptyMessage="No release history available." exportLabel="Collection History" />
             </div>
           )}
           {activeTab === 'inventory' && (
@@ -75,6 +79,11 @@ const AdminDashboardPage: React.FC = () => {
           {activeTab === 'teams' && (
             <div className="fade-in">
               <TeamManager />
+            </div>
+          )}
+          {activeTab === 'audit' && (
+            <div className="fade-in">
+              <AuditLog />
             </div>
           )}
         </div>
