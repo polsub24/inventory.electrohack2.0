@@ -15,9 +15,9 @@ const Button: React.FC<ButtonProps> = ({
   const baseClasses = 'relative inline-flex items-center justify-center font-bold tracking-wider uppercase rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]';
 
   const sizeClasses = {
-    sm: 'py-2 px-3 text-[10px] leading-4',
-    md: 'py-2.5 px-5 text-xs',
-    lg: 'py-4 px-8 text-sm',
+    sm: 'min-h-[36px] py-2 px-3 text-[10px] leading-4',
+    md: 'min-h-[44px] py-2.5 px-5 text-xs',
+    lg: 'min-h-[48px] py-4 px-8 text-sm',
   };
 
   const variantClasses = {
