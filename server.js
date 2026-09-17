@@ -1,97 +1,219 @@
 import express from 'express';
-import mongoose from 'mongoose';
+import pg from 'pg';
 import cors from 'cors';
 import path from 'path';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 
 dotenv.config();
 
+const { Pool } = pg;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/electrohack';
+const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/electrohack';
+const ADMIN_SECRET = process.env.ADMIN_SECRET;
+
+if (!ADMIN_SECRET) {
+  console.warn('⚠️  ADMIN_SECRET is not set in .env — admin login will be unavailable.');
+}
+
+// Constant-time comparison so response timing can't be used to guess the secret.
+// Hashing first means both sides are always compared at a fixed length, so
+// a length mismatch on the raw input can't produce an early, faster return.
+const secretsMatch = (a, b) => {
+  const hashA = crypto.createHash('sha256').update(String(a)).digest();
+  const hashB = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(hashA, hashB);
+};
+
+// Escapes LIKE/ILIKE metacharacters so user input is matched literally
+// (Postgres' default LIKE escape character is backslash).
+const escapeLikePattern = (s) => s.replace(/[\\%_]/g, '\\$&');
+
+const ACTIVE_STATUSES = ['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'];
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// MongoDB Connection
-console.log('🔗 Attempting to connect to MongoDB...');
-mongoose.connect(MONGODB_URI)
-  .then(() => console.log('✅ Connected to MongoDB Atlas'))
-  .catch(err => {
-    console.error('❌ MongoDB connection error:', err.message);
-    console.log('💡 TIP: Check your MONGODB_URI and IP whitelist in Atlas.');
-  });
+// PostgreSQL Connection
+const pool = new Pool({ connectionString: DATABASE_URL });
+let dbConnected = false;
+// Only becomes true once the initial initSchema()/seedAndSync() pass completes.
+// tryReconnect() checks this so a pool error firing mid-startup can't mark the
+// DB ready on a bare connectivity check, before the tables actually exist.
+let schemaReady = false;
+
+// After a pool error, dbConnected is cleared; this probes the pool so a
+// transient error (e.g. an idle client dropped by the DB) doesn't leave
+// checkDbConnection permanently returning 503 once the pool recovers.
+const tryReconnect = async () => {
+  try {
+    await pool.query('SELECT 1');
+    if (schemaReady) {
+      if (!dbConnected) console.log('✅ PostgreSQL connection restored');
+      dbConnected = true;
+    }
+  } catch {
+    dbConnected = false;
+  }
+};
+
+pool.on('error', (err) => {
+  console.error('❌ Unexpected PostgreSQL pool error:', err.message);
+  dbConnected = false;
+  tryReconnect();
+});
+
+// Retries on failure so a DB that isn't accepting connections yet at startup
+// (e.g. a compose/local-dev race) doesn't leave the app stuck at 503 forever —
+// a rejected pool.connect() here never emits a pool 'error' event, so
+// tryReconnect() alone can't recover from this path.
+const RECONNECT_DELAY_MS = 3000;
+const connectAndInitSchema = async () => {
+  try {
+    const client = await pool.connect();
+    client.release();
+    console.log('✅ Connected to PostgreSQL');
+    await initSchema();
+    await seedAndSync();
+    // Only mark the DB "ready" once the schema exists and seed/sync has run,
+    // so requests that arrive right at startup can't hit a missing-table error.
+    schemaReady = true;
+    dbConnected = true;
+  } catch (err) {
+    console.error('❌ PostgreSQL connection error:', err.message);
+    console.log(`💡 TIP: Check your DATABASE_URL and that PostgreSQL is running. Retrying in ${RECONNECT_DELAY_MS / 1000}s...`);
+    setTimeout(connectAndInitSchema, RECONNECT_DELAY_MS);
+  }
+};
+
+console.log('🔗 Attempting to connect to PostgreSQL...');
+connectAndInitSchema();
 
 // Middleware to check DB connection status before handling requests
 const checkDbConnection = (req, res, next) => {
-  if (mongoose.connection.readyState !== 1) { // 1 = connected
-    return res.status(503).json({ error: `Database not ready. Status code: ${mongoose.connection.readyState}` });
+  if (!dbConnected) {
+    return res.status(503).json({ error: 'Database not ready.' });
   }
   next();
 };
 
+// --- SCHEMA ---
+const initSchema = async () => {
+  await pool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS components (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      total_quantity INTEGER NOT NULL DEFAULT 0,
+      reserved_quantity INTEGER NOT NULL DEFAULT 0,
+      has_quantity_limit BOOLEAN NOT NULL DEFAULT TRUE
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS teams (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      team_name TEXT NOT NULL UNIQUE,
+      leader_name TEXT NOT NULL,
+      registration_number TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS requests (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      status TEXT NOT NULL,
+      "timestamp" TIMESTAMPTZ NOT NULL DEFAULT now(),
+      notes TEXT
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS request_items (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      request_id UUID NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
+      component_id UUID REFERENCES components(id),
+      quantity INTEGER NOT NULL
+    )
+  `);
+};
 
-// --- SCHEMAS ---
-const ComponentSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  category: { type: String, required: true },
-  totalQuantity: { type: Number, default: 0 },
-  reservedQuantity: { type: Number, default: 0 },
-  hasQuantityLimit: { type: Boolean, default: true } // true = limited quantity, false = unlimited (just available/out of stock)
+// --- MAPPERS ---
+const mapComponent = (c) => ({
+  id: c.id,
+  name: c.name,
+  category: c.category,
+  totalQuantity: c.total_quantity,
+  reservedQuantity: c.reserved_quantity || 0,
+  hasQuantityLimit: c.has_quantity_limit !== false
 });
 
-const TeamSchema = new mongoose.Schema({
-  teamName: { type: String, required: true, unique: true },
-  leaderName: { type: String, required: true },
-  registrationNumber: { type: String, required: true, unique: true },
-  password: { type: String, required: true }
+const mapTeam = (t) => ({
+  id: t.id,
+  teamName: t.team_name,
+  leaderName: t.leader_name,
+  registrationNumber: t.registration_number
 });
 
-const RequestSchema = new mongoose.Schema({
-  teamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
-  status: { type: String, required: true },
-  items: [{
-    componentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Component' },
-    quantity: { type: Number, required: true }
-  }],
-  timestamp: { type: Date, default: Date.now },
-  notes: String
-});
+const isValidUUID = (v) => typeof v === 'string' && UUID_RE.test(v);
 
-const Component = mongoose.model('Component', ComponentSchema);
-const Team = mongoose.model('Team', TeamSchema);
-const Request = mongoose.model('Request', RequestSchema);
+// --- HELPER: BATCH STOCK ADJUSTMENT ---
+// Adjusts `column` (reserved_quantity or total_quantity) for every item's component by
+// (sign * quantity) in a single batched UPDATE, skipping unlimited components. Replaces
+// the several near-identical per-item update loops that used to be spread across the
+// request/reinstate/delete/team-delete routes.
+const adjustStock = async (client, items, column, sign = 1) => {
+  // Aggregate by component first: Postgres' UPDATE ... FROM only applies ONE of several
+  // source rows that match the same target row (it does not sum them), so if `items`
+  // ever contains the same componentId twice we must pre-sum deltas ourselves.
+  const totals = new Map();
+  for (const i of items || []) {
+    const id = i.componentId ?? i.component_id;
+    if (id == null) continue;
+    totals.set(id, (totals.get(id) || 0) + sign * i.quantity);
+  }
+  if (totals.size === 0) return;
+  const ids = Array.from(totals.keys());
+  const deltas = Array.from(totals.values());
+  await client.query(
+    `UPDATE components AS c
+     SET ${column} = c.${column} + t.delta
+     FROM (SELECT unnest($1::uuid[]) AS id, unnest($2::int[]) AS delta) AS t
+     WHERE c.id = t.id AND c.has_quantity_limit = true`,
+    [ids, deltas]
+  );
+};
 
 // --- HELPER: STOCK RECALCULATION ---
 // This fixes data drift (like negative reserved quantities) by syncing DB with actual active requests
 const recalculateInventory = async () => {
-  if (mongoose.connection.readyState !== 1) return;
-
   console.log('🔄 Syncing inventory reservation counts...');
   try {
-    // 1. Reset all reserved counts to 0
-    await Component.updateMany({}, { $set: { reservedQuantity: 0 } });
+    await pool.query('UPDATE components SET reserved_quantity = 0');
 
-    // 2. Find all active requests (Pending, Modified, Approved)
-    const activeRequests = await Request.find({
-      status: { $in: ['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'] }
-    });
+    const { rows } = await pool.query(
+      `SELECT component_id, SUM(quantity)::int AS qty
+       FROM request_items ri
+       JOIN requests r ON r.id = ri.request_id
+       WHERE r.status = ANY($1::text[])
+       GROUP BY component_id`,
+      [ACTIVE_STATUSES]
+    );
 
-    // 3. Sum up quantities per component
-    const reservationMap = {};
-    activeRequests.forEach(req => {
-      req.items.forEach(item => {
-        const id = item.componentId.toString();
-        reservationMap[id] = (reservationMap[id] || 0) + item.quantity;
-      });
-    });
-
-    // 4. Update components
-    for (const [id, qty] of Object.entries(reservationMap)) {
-      await Component.findByIdAndUpdate(id, { reservedQuantity: qty });
+    const withComponent = rows.filter(row => row.component_id);
+    if (withComponent.length > 0) {
+      await pool.query(
+        `UPDATE components AS c
+         SET reserved_quantity = t.qty
+         FROM (SELECT unnest($1::uuid[]) AS id, unnest($2::int[]) AS qty) AS t
+         WHERE c.id = t.id`,
+        [withComponent.map(row => row.component_id), withComponent.map(row => row.qty)]
+      );
     }
     console.log('✅ Inventory reservations synchronized.');
   } catch (err) {
@@ -102,76 +224,105 @@ const recalculateInventory = async () => {
 // --- API ROUTES ---
 
 // Health check to verify server and DB status
-app.get('/api/health', (req, res) => {
-  const dbState = mongoose.connection.readyState;
-  const isConnected = dbState === 1;
-  res.status(isConnected ? 200 : 503).json({
-    status: 'ok',
-    database: {
-      connected: isConnected,
-      state: ['disconnected', 'connected', 'connecting', 'disconnecting'][dbState]
-    }
-  });
+app.get('/api/health', async (req, res) => {
+  // Mirror checkDbConnection's gate: a bare SELECT 1 can succeed before the
+  // schema/seed pass has finished, which would report healthy while every
+  // other route is still returning 503.
+  if (!dbConnected) {
+    return res.status(503).json({ status: 'ok', database: { connected: false, state: 'disconnected' } });
+  }
+  try {
+    await pool.query('SELECT 1');
+    res.status(200).json({ status: 'ok', database: { connected: true, state: 'connected' } });
+  } catch (err) {
+    res.status(503).json({ status: 'ok', database: { connected: false, state: 'disconnected' } });
+  }
 });
-
 
 // Initial seed and Sync
 const seedAndSync = async () => {
   try {
-    const count = await Component.countDocuments();
-    if (count === 0) {
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM components');
+    if (rows[0].count === 0) {
       const mock = [
-        { name: 'Arduino Uno', category: 'Modules', totalQuantity: 20, reservedQuantity: 0 },
-        { name: 'ESP32', category: 'Modules', totalQuantity: 15, reservedQuantity: 0 },
-        { name: 'DHT11 Sensor', category: 'Sensors', totalQuantity: 50, reservedQuantity: 0 },
-        { name: 'Servo Motor SG90', category: 'Modules', totalQuantity: 10, reservedQuantity: 0 }
+        ['Arduino Uno', 'Modules', 20],
+        ['ESP32', 'Modules', 15],
+        ['DHT11 Sensor', 'Sensors', 50],
+        ['Servo Motor SG90', 'Modules', 10]
       ];
-      await Component.insertMany(mock);
+      for (const [name, category, totalQuantity] of mock) {
+        await pool.query(
+          'INSERT INTO components (name, category, total_quantity) VALUES ($1, $2, $3)',
+          [name, category, totalQuantity]
+        );
+      }
       console.log('🌱 Database seeded with initial components');
     }
     await recalculateInventory();
   } catch (err) {
-    console.error("Seed/Sync failed:", err.message);
+    console.error('Seed/Sync failed:', err.message);
   }
 };
-// Wait a moment for DB connection before attempting
-setTimeout(seedAndSync, 2000);
 
 // Get full inventory state
 app.get('/api/inventory', checkDbConnection, async (req, res) => {
   try {
-    const [components, teams, requests] = await Promise.all([
-      Component.find(),
-      Team.find(),
-      Request.find().populate('teamId').populate('items.componentId')
+    const [componentsRes, teamsRes, requestsRes] = await Promise.all([
+      pool.query('SELECT * FROM components ORDER BY name'),
+      pool.query('SELECT * FROM teams ORDER BY team_name'),
+      pool.query(`
+        SELECT r.id, r.team_id, r.status, r.timestamp, r.notes,
+               t.id AS team_pk, t.team_name, t.leader_name, t.registration_number,
+               ri.component_id, ri.quantity,
+               c.id AS comp_pk, c.name AS comp_name, c.category AS comp_category,
+               c.total_quantity AS comp_total, c.reserved_quantity AS comp_reserved,
+               c.has_quantity_limit AS comp_limit
+        FROM requests r
+        LEFT JOIN teams t ON t.id = r.team_id
+        LEFT JOIN request_items ri ON ri.request_id = r.id
+        LEFT JOIN components c ON c.id = ri.component_id
+        ORDER BY r.timestamp DESC
+      `)
     ]);
 
-    // Map Mongo objects to frontend expectations
-    const mappedRequests = requests.map(r => ({
-      id: r._id,
-      teamId: r.teamId?._id,
-      team: r.teamId,
-      status: r.status,
-      timestamp: r.timestamp,
-      notes: r.notes,
-      items: r.items.map(i => ({
-        componentId: i.componentId?._id,
-        quantity: i.quantity,
-        component: i.componentId
-      }))
-    }));
+    const requestMap = new Map();
+    for (const row of requestsRes.rows) {
+      if (!requestMap.has(row.id)) {
+        requestMap.set(row.id, {
+          id: row.id,
+          teamId: row.team_id,
+          team: row.team_pk ? {
+            id: row.team_pk,
+            teamName: row.team_name,
+            leaderName: row.leader_name,
+            registrationNumber: row.registration_number
+          } : null,
+          status: row.status,
+          timestamp: row.timestamp,
+          notes: row.notes,
+          items: []
+        });
+      }
+      if (row.component_id !== null) {
+        requestMap.get(row.id).items.push({
+          componentId: row.component_id,
+          quantity: row.quantity,
+          component: row.comp_pk ? {
+            id: row.comp_pk,
+            name: row.comp_name,
+            category: row.comp_category,
+            totalQuantity: row.comp_total,
+            reservedQuantity: row.comp_reserved || 0,
+            hasQuantityLimit: row.comp_limit !== false
+          } : null
+        });
+      }
+    }
 
     res.json({
-      components: components.map(c => ({
-        id: c._id,
-        name: c.name,
-        category: c.category,
-        totalQuantity: c.totalQuantity,
-        reservedQuantity: c.reservedQuantity || 0,
-        hasQuantityLimit: c.hasQuantityLimit !== false // Default to true if not set
-      })),
-      teams: teams.map(t => ({ ...t.toObject(), id: t._id })),
-      requests: mappedRequests
+      components: componentsRes.rows.map(mapComponent),
+      teams: teamsRes.rows.map(mapTeam),
+      requests: Array.from(requestMap.values())
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -186,13 +337,13 @@ app.post('/api/teams/register', checkDbConnection, async (req, res) => {
   }
 
   try {
-    const existingTeamByName = await Team.findOne({ teamName: { $regex: new RegExp(`^${teamName.trim()}$`, 'i') } });
-    if (existingTeamByName) {
+    const existingByName = await pool.query('SELECT id FROM teams WHERE team_name ILIKE $1', [escapeLikePattern(teamName.trim())]);
+    if (existingByName.rows.length > 0) {
       return res.status(409).json({ error: 'This team name is already taken.' });
     }
 
-    const existingTeamByReg = await Team.findOne({ registrationNumber: { $regex: new RegExp(`^${registrationNumber.trim()}$`, 'i') } });
-    if (existingTeamByReg) {
+    const existingByReg = await pool.query('SELECT id FROM teams WHERE registration_number ILIKE $1', [escapeLikePattern(registrationNumber.trim())]);
+    if (existingByReg.rows.length > 0) {
       return res.status(409).json({ error: 'This registration number is already in use.' });
     }
 
@@ -208,33 +359,28 @@ app.post('/api/teams/register', checkDbConnection, async (req, res) => {
 
     const generatedPassword = generatePassword();
 
-    const newTeam = new Team({
-      teamName: teamName.trim(),
-      leaderName: leaderName.trim(),
-      registrationNumber: registrationNumber.trim(),
-      password: generatedPassword
-    });
-    await newTeam.save();
+    const { rows } = await pool.query(
+      'INSERT INTO teams (team_name, leader_name, registration_number, password) VALUES ($1, $2, $3, $4) RETURNING *',
+      [teamName.trim(), leaderName.trim(), registrationNumber.trim(), generatedPassword]
+    );
 
     // Return the password in the response (only shown once during registration)
     res.status(201).json({
-      ...newTeam.toObject(),
-      id: newTeam._id,
-      password: generatedPassword // Include password in response
+      ...mapTeam(rows[0]),
+      password: generatedPassword
     });
   } catch (err) {
-    if (err.code === 11000) { // Mongoose duplicate key error
-      if (err.message.includes('teamName')) {
+    if (err.code === '23505') { // Postgres unique_violation
+      if (err.constraint && err.constraint.includes('team_name')) {
         return res.status(409).json({ error: 'This team name is already in use.' });
       }
-      if (err.message.includes('registrationNumber')) {
+      if (err.constraint && err.constraint.includes('registration_number')) {
         return res.status(409).json({ error: 'This registration number is already in use.' });
       }
     }
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // Team Login
 app.post('/api/teams/login', checkDbConnection, async (req, res) => {
@@ -243,51 +389,80 @@ app.post('/api/teams/login', checkDbConnection, async (req, res) => {
     return res.status(400).json({ error: 'Team name and password are required.' });
   }
   try {
-    const team = await Team.findOne({ teamName: { $regex: new RegExp(`^${teamName.trim()}$`, 'i') } });
+    const { rows } = await pool.query('SELECT * FROM teams WHERE team_name ILIKE $1', [escapeLikePattern(teamName.trim())]);
+    const team = rows[0];
     if (!team) {
       return res.status(404).json({ error: 'Team not found. Please register first.' });
     }
 
-    // Verify password
     if (team.password !== password) {
       return res.status(401).json({ error: 'Invalid password.' });
     }
 
     // Don't send password back in response
-    const { password: _, ...teamData } = team.toObject();
-    res.json({ ...teamData, id: team._id });
+    res.json(mapTeam(team));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
+// Admin Login
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required.' });
+  }
+  if (!ADMIN_SECRET) {
+    return res.status(500).json({ error: 'Admin login is not configured on the server.' });
+  }
+  if (!secretsMatch(password, ADMIN_SECRET)) {
+    return res.status(401).json({ error: 'Incorrect password.' });
+  }
+  res.json({ ok: true });
+});
+
 // Submit Request
 app.post('/api/requests', checkDbConnection, async (req, res) => {
-  const { teamId, cart } = req.body;
+  const { teamId } = req.body;
+  const cart = Array.isArray(req.body.cart) ? req.body.cart : [];
+  let client;
   try {
-    const newRequest = new Request({
-      teamId,
-      status: 'PENDING_APPROVAL',
-      items: cart.map(item => ({
-        componentId: item.componentId,
-        quantity: item.quantity
-      }))
-    });
+    client = await pool.connect();
+    await client.query('BEGIN');
 
-    // Update reserved quantities atomically (skip unlimited components)
-    for (const item of cart) {
-      const component = await Component.findById(item.componentId);
-      if (component && component.hasQuantityLimit !== false) {
-        await Component.findByIdAndUpdate(item.componentId, {
-          $inc: { reservedQuantity: item.quantity }
-        });
-      }
+    const { rows: reqRows } = await client.query(
+      `INSERT INTO requests (team_id, status) VALUES ($1, 'PENDING_APPROVAL') RETURNING *`,
+      [teamId]
+    );
+    const newRequest = reqRows[0];
+
+    // Skip unlimited components (WHERE guard inside adjustStock makes this a no-op for them)
+    await adjustStock(client, cart, 'reserved_quantity', 1);
+
+    if (cart.length > 0) {
+      await client.query(
+        `INSERT INTO request_items (request_id, component_id, quantity)
+         SELECT $1, unnest($2::uuid[]), unnest($3::int[])`,
+        [newRequest.id, cart.map(i => i.componentId), cart.map(i => i.quantity)]
+      );
     }
+    const items = cart.map(item => ({ componentId: item.componentId, quantity: item.quantity }));
 
-    await newRequest.save();
-    res.json(newRequest);
+    await client.query('COMMIT');
+
+    res.json({
+      id: newRequest.id,
+      teamId: newRequest.team_id,
+      status: newRequest.status,
+      timestamp: newRequest.timestamp,
+      notes: newRequest.notes,
+      items
+    });
   } catch (err) {
+    if (client) await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
@@ -295,12 +470,25 @@ app.post('/api/requests', checkDbConnection, async (req, res) => {
 app.patch('/api/requests/:id', checkDbConnection, async (req, res) => {
   const { id } = req.params;
   const { status, items, notes } = req.body; // items is optional
+  let client;
 
   try {
-    const oldRequest = await Request.findById(id);
-    if (!oldRequest) return res.status(404).send('Request not found');
+    client = await pool.connect();
+    await client.query('BEGIN');
 
-    const newItems = items ? items : oldRequest.items;
+    const { rows: oldRows } = await client.query('SELECT * FROM requests WHERE id = $1 FOR UPDATE', [id]);
+    if (oldRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).send('Request not found');
+    }
+    const oldRequest = oldRows[0];
+
+    const { rows: oldItemRows } = await client.query(
+      'SELECT component_id, quantity FROM request_items WHERE request_id = $1',
+      [id]
+    );
+
+    const newItems = items ? items : oldItemRows.map(r => ({ componentId: r.component_id, quantity: r.quantity }));
     const newStatus = status ? status : oldRequest.status;
 
     // Helper to determine what bucket the stock falls into
@@ -308,7 +496,7 @@ app.patch('/api/requests/:id', checkDbConnection, async (req, res) => {
     // FINALIZED: Counts as deducted from totalQuantity
     // NONE: No impact (e.g. REJECTED)
     const getStockImpactType = (s) => {
-      if (['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'].includes(s)) return 'RESERVED';
+      if (ACTIVE_STATUSES.includes(s)) return 'RESERVED';
       if (s === 'COLLECTED') return 'FINALIZED';
       return 'NONE';
     };
@@ -318,121 +506,152 @@ app.patch('/api/requests/:id', checkDbConnection, async (req, res) => {
 
     // 1. Revert Old Impact (Undo what the old request was doing to the stock)
     if (oldType === 'RESERVED') {
-      for (const item of oldRequest.items) {
-        const component = await Component.findById(item.componentId);
-        if (component && component.hasQuantityLimit !== false) {
-          await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: -item.quantity } });
-        }
-      }
+      await adjustStock(client, oldItemRows, 'reserved_quantity', -1);
     } else if (oldType === 'FINALIZED') {
-      for (const item of oldRequest.items) {
-        const component = await Component.findById(item.componentId);
-        if (component && component.hasQuantityLimit !== false) {
-          await Component.findByIdAndUpdate(item.componentId, { $inc: { totalQuantity: item.quantity } });
-        }
-      }
+      await adjustStock(client, oldItemRows, 'total_quantity', 1);
     }
 
     // 2. Apply New Impact (Apply what the new request state should do)
     if (newType === 'RESERVED') {
-      for (const item of newItems) {
-        const component = await Component.findById(item.componentId);
-        if (component && component.hasQuantityLimit !== false) {
-          await Component.findByIdAndUpdate(item.componentId, { $inc: { reservedQuantity: item.quantity } });
-        }
-      }
+      await adjustStock(client, newItems, 'reserved_quantity', 1);
     } else if (newType === 'FINALIZED') {
-      for (const item of newItems) {
-        const component = await Component.findById(item.componentId);
-        if (component && component.hasQuantityLimit !== false) {
-          await Component.findByIdAndUpdate(item.componentId, { $inc: { totalQuantity: -item.quantity } });
-        }
-      }
+      await adjustStock(client, newItems, 'total_quantity', -1);
     }
 
     // 3. Update Request Record
-    const updateData = { status: newStatus, notes };
     if (items) {
-      updateData.items = items.map(i => ({ componentId: i.componentId, quantity: i.quantity }));
+      await client.query('DELETE FROM request_items WHERE request_id = $1', [id]);
+      if (items.length > 0) {
+        await client.query(
+          `INSERT INTO request_items (request_id, component_id, quantity)
+           SELECT $1, unnest($2::uuid[]), unnest($3::int[])`,
+          [id, items.map(i => i.componentId), items.map(i => i.quantity)]
+        );
+      }
     }
 
-    const updated = await Request.findByIdAndUpdate(id, updateData, { new: true });
-    res.json(updated);
+    const { rows: updatedRows } = await client.query(
+      'UPDATE requests SET status = $1, notes = $2 WHERE id = $3 RETURNING *',
+      [newStatus, notes !== undefined ? notes : oldRequest.notes, id]
+    );
+
+    const { rows: finalItemRows } = await client.query(
+      'SELECT component_id, quantity FROM request_items WHERE request_id = $1',
+      [id]
+    );
+
+    await client.query('COMMIT');
+
+    const updated = updatedRows[0];
+    res.json({
+      id: updated.id,
+      teamId: updated.team_id,
+      status: updated.status,
+      timestamp: updated.timestamp,
+      notes: updated.notes,
+      items: finalItemRows.map(i => ({ componentId: i.component_id, quantity: i.quantity }))
+    });
   } catch (err) {
+    if (client) await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
 // Reinstate Inventory (Admin - Return collected items to stock)
 app.patch('/api/requests/:id/reinstate', checkDbConnection, async (req, res) => {
   const { id } = req.params;
+  let client;
   try {
-    const request = await Request.findById(id);
-    if (!request) return res.status(404).json({ error: 'Request not found' });
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    const { rows } = await client.query('SELECT * FROM requests WHERE id = $1 FOR UPDATE', [id]);
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Request not found' });
+    }
+    const request = rows[0];
 
     // Can only reinstate from COLLECTED status
     if (request.status !== 'COLLECTED') {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Can only reinstate inventory from collected requests' });
     }
 
-    // Restore the components to totalQuantity (reverse the collection, skip unlimited)
-    for (const item of request.items) {
-      const component = await Component.findById(item.componentId);
-      if (component && component.hasQuantityLimit !== false) {
-        await Component.findByIdAndUpdate(item.componentId, {
-          $inc: { totalQuantity: item.quantity }
-        });
-      }
-    }
-
-    // Update request status to RETURNED_TO_INVENTORY
-    const updated = await Request.findByIdAndUpdate(
-      id,
-      { status: 'RETURNED_TO_INVENTORY' },
-      { new: true }
+    const { rows: itemRows } = await client.query(
+      'SELECT component_id, quantity FROM request_items WHERE request_id = $1',
+      [id]
     );
 
-    res.json(updated);
+    // Restore the components to totalQuantity (reverse the collection, skip unlimited)
+    await adjustStock(client, itemRows, 'total_quantity', 1);
+
+    // Update request status to RETURNED_TO_INVENTORY
+    const { rows: updatedRows } = await client.query(
+      `UPDATE requests SET status = 'RETURNED_TO_INVENTORY' WHERE id = $1 RETURNING *`,
+      [id]
+    );
+
+    await client.query('COMMIT');
+
+    const updated = updatedRows[0];
+    res.json({
+      id: updated.id,
+      teamId: updated.team_id,
+      status: updated.status,
+      timestamp: updated.timestamp,
+      notes: updated.notes,
+      items: itemRows.map(i => ({ componentId: i.component_id, quantity: i.quantity }))
+    });
   } catch (err) {
+    if (client) await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
 // Delete Request (Admin - Delete History)
 app.delete('/api/requests/:id', checkDbConnection, async (req, res) => {
   const { id } = req.params;
+  let client;
   try {
-    const request = await Request.findById(id);
-    if (!request) return res.status(404).json({ error: 'Request not found' });
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    const { rows } = await client.query('SELECT * FROM requests WHERE id = $1 FOR UPDATE', [id]);
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Request not found' });
+    }
+    const request = rows[0];
+
+    const { rows: itemRows } = await client.query(
+      'SELECT component_id, quantity FROM request_items WHERE request_id = $1',
+      [id]
+    );
 
     // Restore stock based on status
     if (request.status === 'COLLECTED') {
       // If collected, it was deducted from Total. Restore Total (skip unlimited).
-      for (const item of request.items) {
-        const component = await Component.findById(item.componentId);
-        if (component && component.hasQuantityLimit !== false) {
-          await Component.findByIdAndUpdate(item.componentId, {
-            $inc: { totalQuantity: item.quantity }
-          });
-        }
-      }
-    } else if (['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'].includes(request.status)) {
+      await adjustStock(client, itemRows, 'total_quantity', 1);
+    } else if (ACTIVE_STATUSES.includes(request.status)) {
       // If Reserved, release reservation (skip unlimited).
-      for (const item of request.items) {
-        const component = await Component.findById(item.componentId);
-        if (component && component.hasQuantityLimit !== false) {
-          await Component.findByIdAndUpdate(item.componentId, {
-            $inc: { reservedQuantity: -item.quantity }
-          });
-        }
-      }
+      await adjustStock(client, itemRows, 'reserved_quantity', -1);
     }
     // If Rejected, stock was already released, just delete record.
 
-    await Request.findByIdAndDelete(id);
+    await client.query('DELETE FROM requests WHERE id = $1', [id]); // cascades to request_items
+
+    await client.query('COMMIT');
     res.json({ message: 'Request deleted and stock restored' });
   } catch (err) {
+    if (client) await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
@@ -440,31 +659,29 @@ app.delete('/api/requests/:id', checkDbConnection, async (req, res) => {
 app.put('/api/components', checkDbConnection, async (req, res) => {
   const { id, name, category, totalQuantity, hasQuantityLimit } = req.body;
   try {
-    let component;
-    if (id && mongoose.Types.ObjectId.isValid(id)) {
-      const updateData = { name, category, totalQuantity };
-      if (hasQuantityLimit !== undefined) {
-        updateData.hasQuantityLimit = hasQuantityLimit;
-      }
-      component = await Component.findByIdAndUpdate(id, updateData, { new: true });
+    let row;
+    if (id && isValidUUID(id)) {
+      const { rows } = await pool.query(
+        `UPDATE components
+         SET name = COALESCE($1, name),
+             category = COALESCE($2, category),
+             total_quantity = COALESCE($3, total_quantity),
+             has_quantity_limit = COALESCE($4, has_quantity_limit)
+         WHERE id = $5
+         RETURNING *`,
+        [name, category, totalQuantity, hasQuantityLimit, id]
+      );
+      row = rows[0];
     } else {
-      component = new Component({
-        name,
-        category,
-        totalQuantity,
-        reservedQuantity: 0,
-        hasQuantityLimit: hasQuantityLimit !== undefined ? hasQuantityLimit : true
-      });
-      await component.save();
+      const { rows } = await pool.query(
+        `INSERT INTO components (name, category, total_quantity, reserved_quantity, has_quantity_limit)
+         VALUES ($1, $2, $3, 0, $4)
+         RETURNING *`,
+        [name, category, totalQuantity, hasQuantityLimit !== undefined ? hasQuantityLimit : true]
+      );
+      row = rows[0];
     }
-    res.json({
-      id: component._id,
-      name: component.name,
-      category: component.category,
-      totalQuantity: component.totalQuantity,
-      reservedQuantity: component.reservedQuantity || 0,
-      hasQuantityLimit: component.hasQuantityLimit !== false
-    });
+    res.json(mapComponent(row));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -473,47 +690,47 @@ app.put('/api/components', checkDbConnection, async (req, res) => {
 // Delete Team (Admin)
 app.delete('/api/teams/:id', checkDbConnection, async (req, res) => {
   const { id } = req.params;
+  let client;
   try {
-    const team = await Team.findById(id);
-    if (!team) return res.status(404).json({ error: 'Team not found' });
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    const { rows: teamRows } = await client.query('SELECT * FROM teams WHERE id = $1', [id]);
+    if (teamRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Team not found' });
+    }
 
     // Find all requests associated with this team
-    const teamRequests = await Request.find({ teamId: id });
+    const { rows: teamRequests } = await client.query('SELECT * FROM requests WHERE team_id = $1', [id]);
 
     // Restore stock for each request before deleting
     for (const request of teamRequests) {
+      const { rows: itemRows } = await client.query(
+        'SELECT component_id, quantity FROM request_items WHERE request_id = $1',
+        [request.id]
+      );
+
       if (request.status === 'COLLECTED') {
-        // If collected, it was deducted from Total. Restore Total (skip unlimited).
-        for (const item of request.items) {
-          const component = await Component.findById(item.componentId);
-          if (component && component.hasQuantityLimit !== false) {
-            await Component.findByIdAndUpdate(item.componentId, {
-              $inc: { totalQuantity: item.quantity }
-            });
-          }
-        }
-      } else if (['PENDING_APPROVAL', 'MODIFIED_BY_ADMIN', 'APPROVED_READY'].includes(request.status)) {
-        // If Reserved, release reservation (skip unlimited).
-        for (const item of request.items) {
-          const component = await Component.findById(item.componentId);
-          if (component && component.hasQuantityLimit !== false) {
-            await Component.findByIdAndUpdate(item.componentId, {
-              $inc: { reservedQuantity: -item.quantity }
-            });
-          }
-        }
+        await adjustStock(client, itemRows, 'total_quantity', 1);
+      } else if (ACTIVE_STATUSES.includes(request.status)) {
+        await adjustStock(client, itemRows, 'reserved_quantity', -1);
       }
     }
 
-    // Delete all requests associated with this team
-    await Request.deleteMany({ teamId: id });
+    // Delete all requests associated with this team (cascades to request_items)
+    await client.query('DELETE FROM requests WHERE team_id = $1', [id]);
 
     // Delete the team
-    await Team.findByIdAndDelete(id);
+    await client.query('DELETE FROM teams WHERE id = $1', [id]);
 
+    await client.query('COMMIT');
     res.json({ message: 'Team and all associated requests deleted successfully' });
   } catch (err) {
+    if (client) await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
