@@ -1528,3 +1528,15 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Render's free tier spins the service down after 15 min with no inbound
+// request, which would both cold-start the next request and wipe the
+// in-memory adminSessions Map. RENDER_EXTERNAL_URL is set automatically on
+// Render, so this self-ping is a no-op everywhere else (local dev, tests).
+// ponytail: fixed 10-minute self-ping, no backoff/jitter — fine for a single
+// short-lived event; revisit if this ever needs to run unattended for days.
+if (process.env.RENDER_EXTERNAL_URL) {
+  setInterval(() => {
+    fetch(`${process.env.RENDER_EXTERNAL_URL}/api/health`).catch(() => {});
+  }, 10 * 60 * 1000);
+}
