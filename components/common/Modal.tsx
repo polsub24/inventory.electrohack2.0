@@ -29,7 +29,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer 
                         </svg>
                     </button>
                 </div>
-                <div className="p-8 overflow-y-auto flex-1">
+                <div className="p-8 overflow-y-auto flex-1 min-h-0">
                     {children}
                 </div>
                 {footer && (
