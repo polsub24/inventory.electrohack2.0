@@ -64,3 +64,5 @@ build/
 coverage/
 *.lcov
 .nyc_output/
+.claude/
+.agents/
