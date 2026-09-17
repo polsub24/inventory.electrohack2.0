@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "buried-raster",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-09-17T17:56:24.134Z",
+        "reason": "bg-noise is an intentional fractalNoise SVG grain texture at opacity:0.03, not a buried photo/logo compliance token; predates this session"
+      }
+    ]
+  }
+}
