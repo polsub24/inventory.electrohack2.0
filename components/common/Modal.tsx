@@ -18,7 +18,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer 
             onClick={onClose}
         >
             <div
-                className="bg-gray-950 border border-emerald-900/50 rounded-lg shadow-[0_0_50px_rgba(52,211,153,0.1)] w-full max-w-lg max-h-[90vh] flex flex-col transform transition-all duration-300 scale-100 overflow-hidden"
+                className="bg-gray-950 border border-emerald-900/50 rounded-lg shadow-[0_0_50px_rgba(52,211,153,0.1)] w-full max-w-lg max-h-[90dvh] flex flex-col transform transition-all duration-300 scale-100 overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex justify-between items-center p-5 border-b border-gray-900 flex-shrink-0">
