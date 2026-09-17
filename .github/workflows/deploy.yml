@@ -1,4 +1,4 @@
-name: CI/CD
+name: CI
 
 on:
   push:
@@ -30,11 +30,3 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run build
       - run: npm test
-
-  deploy:
-    needs: test
-    if: github.ref == 'refs/heads/aryan' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger Render deploy
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"

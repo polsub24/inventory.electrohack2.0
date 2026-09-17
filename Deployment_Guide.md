@@ -20,7 +20,8 @@ New → Web Service → connect this GitHub repo. Settings:
 | Branch | `aryan` — deploying straight from this branch, not `main` |
 | Build command | `npm install && npm run build` |
 | Start command | `npm start` |
-| Auto-Deploy | **Off** — CI (below) triggers deploys instead, only after tests pass |
+| Health Check Path | `/api/health` |
+| Auto-Deploy | **After CI Checks Pass** — Render waits for the GitHub Actions check on the commit before deploying |
 
 Set environment variables (Render dashboard → Environment):
 
@@ -38,21 +39,13 @@ Set environment variables (Render dashboard → Environment):
 first boot on an empty DB just works. No separate migration step. Render terminates TLS for you;
 the app just listens on the `PORT` Render injects.
 
-## 3. CI/CD (GitHub Actions → Render Deploy Hook)
+## 3. CI/CD
 
-`.github/workflows/deploy.yml` (below) does two things:
-
-1. **`test` job** — every push and PR: installs, type-checks, builds, runs `npm test` against a
-   throwaway Postgres service container.
-2. **`deploy` job** — only on push to `aryan`, only if `test` passed: calls Render's **Deploy
-   Hook** URL, which tells Render to pull latest and redeploy. This is why Auto-Deploy is off in
-   step 2 — otherwise Render would deploy on every push regardless of whether tests pass.
-
-Get the hook URL from Render → your service → Settings → Deploy Hook, then add it as a GitHub
-repo secret named `RENDER_DEPLOY_HOOK_URL` (Settings → Secrets and variables → Actions).
-
-If you'd rather skip CI gating entirely, leave Render's Auto-Deploy **on** and delete the `deploy`
-job — Render will redeploy on every push by itself, tests or no tests.
+`.github/workflows/deploy.yml` runs on every push and PR: installs, type-checks, builds, and runs
+`npm test` against a throwaway Postgres service container. It reports back as a GitHub check on
+the commit — that's the only wiring needed, since Render's **Auto-Deploy: After CI Checks Pass**
+(step 2) watches that check itself and only deploys once it's green. No Deploy Hook, no GitHub
+secret, no separate deploy job.
 
 ## 4. Post-deploy checklist
 
