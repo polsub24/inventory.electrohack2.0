@@ -3,25 +3,27 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
-
-// --- CONFIGURATION ---
-// CHANGE YOUR ADMIN PASSWORD HERE
-const ADMIN_SECRET = 'electrocaspaglus2026';
-// ---------------------
+import api from '../server/api';
 
 const AdminLoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const { loginAdmin } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === ADMIN_SECRET) {
+    setError('');
+    setIsSubmitting(true);
+    try {
+      await api.loginAdmin(password);
       loginAdmin();
       navigate('/admin');
-    } else {
-      setError('Incorrect password.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Incorrect password.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -46,8 +48,8 @@ const AdminLoginPage: React.FC = () => {
             />
           </div>
           {error && <p className="text-red-500 text-xs font-bold uppercase tracking-tight">{error}</p>}
-          <Button type="submit" className="w-full mt-4 bg-amber-600 hover:bg-amber-500 py-3">
-            Unlock Console
+          <Button type="submit" disabled={isSubmitting} className="w-full mt-4 bg-amber-600 hover:bg-amber-500 py-3 disabled:opacity-50">
+            {isSubmitting ? 'Verifying...' : 'Unlock Console'}
           </Button>
         </form>
       </Card>

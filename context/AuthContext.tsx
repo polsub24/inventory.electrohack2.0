@@ -13,7 +13,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const SESSION_STORAGE_KEY = 'electrohack_user_session';
+const SESSION_STORAGE_KEY = import.meta.env.VITE_SESSION_STORAGE_KEY || 'electrohack_user_session';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {

@@ -34,6 +34,15 @@ const api = {
     return response.json();
   },
 
+  async loginAdmin(password: string): Promise<void> {
+    const response = await fetch(`${BASE_URL}/api/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (!response.ok) throw await createApiError(response, 'Admin login failed');
+  },
+
   // --- DATA FETCHING ---
   async getInventoryData(): Promise<{ components: Component[], teams: Team[], requests: Request[] }> {
     const response = await fetch(`${BASE_URL}/api/inventory`);
