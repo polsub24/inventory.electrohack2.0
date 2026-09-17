@@ -17,6 +17,7 @@ New → Web Service → connect this GitHub repo. Settings:
 
 | Setting | Value |
 |---|---|
+| Branch | `aryan` — deploying straight from this branch, not `main` |
 | Build command | `npm install && npm run build` |
 | Start command | `npm start` |
 | Auto-Deploy | **Off** — CI (below) triggers deploys instead, only after tests pass |
@@ -43,7 +44,7 @@ the app just listens on the `PORT` Render injects.
 
 1. **`test` job** — every push and PR: installs, type-checks, builds, runs `npm test` against a
    throwaway Postgres service container.
-2. **`deploy` job** — only on push to `main`, only if `test` passed: calls Render's **Deploy
+2. **`deploy` job** — only on push to `aryan`, only if `test` passed: calls Render's **Deploy
    Hook** URL, which tells Render to pull latest and redeploy. This is why Auto-Deploy is off in
    step 2 — otherwise Render would deploy on every push regardless of whether tests pass.
 

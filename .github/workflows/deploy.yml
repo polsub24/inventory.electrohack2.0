@@ -2,7 +2,7 @@ name: CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [aryan]
   pull_request:
 
 jobs:
@@ -33,7 +33,7 @@ jobs:
 
   deploy:
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/aryan' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Render deploy
