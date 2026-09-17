@@ -267,7 +267,7 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
                       <button
                         onClick={() => handleQuantityChange(item.componentId, -1)}
                         disabled={!isActionable || isLoading || item.quantity <= 0}
-                        className="w-8 h-8 rounded border border-gray-700 bg-black hover:bg-gray-800 text-emerald-400 disabled:opacity-30 flex items-center justify-center font-bold"
+                        className="w-11 h-11 rounded border border-gray-700 bg-black hover:bg-gray-800 text-emerald-400 disabled:opacity-30 flex items-center justify-center font-bold text-lg"
                       >
                         -
                       </button>
@@ -275,7 +275,7 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
                       <button
                         onClick={() => handleQuantityChange(item.componentId, 1)}
                         disabled={!isActionable || isLoading}
-                        className="w-8 h-8 rounded border border-gray-700 bg-black hover:bg-gray-800 text-emerald-400 disabled:opacity-30 flex items-center justify-center font-bold"
+                        className="w-11 h-11 rounded border border-gray-700 bg-black hover:bg-gray-800 text-emerald-400 disabled:opacity-30 flex items-center justify-center font-bold text-lg"
                       >
                         +
                       </button>
@@ -418,7 +418,7 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
                     <button
                       onClick={() => adjustReinstateQty(item.componentId, -1, outstanding)}
                       disabled={isLoading || selected <= 0}
-                      className="w-8 h-8 rounded border border-gray-700 bg-black hover:bg-gray-800 text-emerald-400 disabled:opacity-30 flex items-center justify-center font-bold"
+                      className="w-11 h-11 rounded border border-gray-700 bg-black hover:bg-gray-800 text-emerald-400 disabled:opacity-30 flex items-center justify-center font-bold text-lg"
                     >
                       -
                     </button>
@@ -426,7 +426,7 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
                     <button
                       onClick={() => adjustReinstateQty(item.componentId, 1, outstanding)}
                       disabled={isLoading || selected >= outstanding}
-                      className="w-8 h-8 rounded border border-gray-700 bg-black hover:bg-gray-800 text-emerald-400 disabled:opacity-30 flex items-center justify-center font-bold"
+                      className="w-11 h-11 rounded border border-gray-700 bg-black hover:bg-gray-800 text-emerald-400 disabled:opacity-30 flex items-center justify-center font-bold text-lg"
                     >
                       +
                     </button>
