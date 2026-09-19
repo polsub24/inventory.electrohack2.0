@@ -261,8 +261,9 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
               // If request is pending, it holds `originalItem.quantity` in reserved.
               // So real available for *this* request to increase is (Total - Reserved) + (ReservedByThisRequest)
               const reservedByThisRequest = originalItem ? originalItem.quantity : 0;
+              const isUnlimited = component.hasQuantityLimit === false;
               const trueAvailable = (component.totalQuantity - component.reservedQuantity) + reservedByThisRequest;
-              const isStockIssue = item.quantity > trueAvailable;
+              const isStockIssue = !isUnlimited && item.quantity > trueAvailable;
 
               return (
                 <tr key={item.componentId} className="hover:bg-emerald-400/5 transition-colors">
@@ -292,7 +293,7 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
                   </td>
                   <td className="p-4">
                     <span className={`font-mono text-xs md:text-sm ${isStockIssue ? 'text-red-500 font-black' : 'text-gray-400'}`}>
-                      {trueAvailable} Available
+                      {isUnlimited ? '∞' : trueAvailable} Available
                     </span>
                   </td>
                 </tr>
@@ -313,7 +314,9 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
             >
               <option value="">Select a component...</option>
               {availableComponentsToAdd.map(c => (
-                <option key={c.id} value={c.id}>{c.name} ({c.totalQuantity - c.reservedQuantity} avail)</option>
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.hasQuantityLimit === false ? '∞' : c.totalQuantity - c.reservedQuantity} avail)
+                </option>
               ))}
             </select>
           </div>

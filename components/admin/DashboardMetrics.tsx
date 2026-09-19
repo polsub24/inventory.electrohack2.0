@@ -11,7 +11,7 @@ const DashboardMetrics: React.FC = () => {
     const reservedComponents = components.reduce((sum, c) => sum + c.reservedQuantity, 0);
     const activeRequests = requests.filter(r => r.status === RequestStatus.Pending || r.status === RequestStatus.Modified).length;
     const approvedRequests = requests.filter(r => r.status === RequestStatus.Approved).length;
-    const lowStockAlerts = components.filter(c => (c.totalQuantity - c.reservedQuantity) > 0 && (c.totalQuantity - c.reservedQuantity) < 10).length;
+    const lowStockAlerts = components.filter(c => c.hasQuantityLimit !== false && (c.totalQuantity - c.reservedQuantity) > 0 && (c.totalQuantity - c.reservedQuantity) < 10).length;
 
     return { totalComponents, reservedComponents, activeRequests, approvedRequests, lowStockAlerts };
   }, [components, requests]);
