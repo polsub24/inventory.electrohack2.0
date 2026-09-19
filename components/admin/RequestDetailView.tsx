@@ -137,6 +137,12 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
     });
   };
 
+  const setReinstateQty = (componentId: string, rawValue: string, outstanding: number) => {
+    const parsed = parseInt(rawValue, 10);
+    const clamped = Number.isNaN(parsed) ? 0 : Math.max(0, Math.min(outstanding, parsed));
+    setReinstateQuantities(prev => ({ ...prev, [componentId]: clamped }));
+  };
+
   const totalReturningNow = Object.values(reinstateQuantities).reduce((sum, qty) => sum + qty, 0);
 
   const handleConfirmReinstate = async () => {
@@ -422,7 +428,16 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
                     >
                       -
                     </button>
-                    <span className="w-8 text-center font-black text-white text-sm">{selected}</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={outstanding}
+                      value={selected}
+                      onChange={(e) => setReinstateQty(item.componentId, e.target.value, outstanding)}
+                      disabled={isLoading}
+                      className="w-14 h-11 text-center font-black text-white text-sm bg-black border border-gray-700 rounded outline-none focus:border-emerald-400"
+                    />
                     <button
                       onClick={() => adjustReinstateQty(item.componentId, 1, outstanding)}
                       disabled={isLoading || selected >= outstanding}
