@@ -311,7 +311,6 @@ const InventoryManager: React.FC = () => {
                   onChange={(e) => setEditingComponent({
                     ...editingComponent,
                     hasQuantityLimit: !e.target.checked,
-                    totalQuantity: e.target.checked ? 0 : editingComponent.totalQuantity
                   })}
                   className="w-5 h-5 bg-black border-2 border-gray-700 rounded checked:bg-blue-500 checked:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
                 />
