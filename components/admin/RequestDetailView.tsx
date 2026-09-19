@@ -117,9 +117,12 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = ({ request }) => {
     setActionError('');
     setReturnedByName('');
     setReturnedByRegNum('');
+    // Start every item at 0 rather than pre-filled with the full outstanding
+    // amount — the admin confirms what's physically being handed back by
+    // typing it in, instead of having to zero out what wasn't returned.
     const defaults: Record<string, number> = {};
     outstandingItems.forEach(item => {
-      defaults[item.componentId] = item.quantity - item.returnedQuantity;
+      defaults[item.componentId] = 0;
     });
     setReinstateQuantities(defaults);
     setShowReinstateModal(true);
