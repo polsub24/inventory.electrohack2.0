@@ -53,7 +53,7 @@ const Header: React.FC = () => {
         <div className="flex h-16 items-center justify-between sm:h-20">
           <Link
             to="/"
-            aria-label="ELECTROHACK 2.0 home"
+            aria-label="Embed Control 7.0 Home"
             className="flex items-center rounded-lg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
           >
             <img src={CAS_LOGO} alt="IEEE Circuits and Systems Society" className="h-5 opacity-90" />
