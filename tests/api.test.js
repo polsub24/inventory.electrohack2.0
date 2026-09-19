@@ -1077,3 +1077,87 @@ test('locking a nonexistent team returns 404', async () => {
   const res = await api.post('/api/teams/00000000-0000-0000-0000-000000000000/lock', {});
   assert.equal(res.status, 404);
 });
+
+// ---------------------------------------------------------------------------
+// Admin-only name corrections (leader + member), unlike add/remove — always
+// requires an admin session and credentials, regardless of roster lock state.
+// ---------------------------------------------------------------------------
+
+test('editing the leader name without an admin session is rejected', async () => {
+  const res = await api.patchUnauth(`/api/teams/${teamId}/leader-name`, { leaderName: 'Someone Else' });
+  assert.equal(res.status, 401);
+});
+
+test('editing the leader name without authorizing credentials is rejected', async () => {
+  const res = await api.patch(`/api/teams/${teamId}/leader-name`, { leaderName: 'Someone Else' });
+  assert.equal(res.status, 400);
+});
+
+test('an admin can edit the team leader name, and it is audit-logged', async () => {
+  const res = await api.patch(`/api/teams/${teamId}/leader-name`, {
+    leaderName: 'Aryan Renamed',
+    changedBy: { name: 'Aryan', registrationNumber: 'REG-ADMIN-1' }
+  });
+  assert.equal(res.status, 200);
+  const team = await res.json();
+  assert.equal(team.leaderName, 'Aryan Renamed');
+
+  const { teams } = await getInventory();
+  assert.equal(teams.find(t => t.id === teamId).leaderName, 'Aryan Renamed');
+
+  const auditRes = await api.getAdmin('/api/audit-log?limit=500');
+  const entries = await auditRes.json();
+  const entry = entries.find(e => e.action === 'EDIT_TEAM_LEADER' && e.targetId === teamId);
+  assert.ok(entry, 'expected an EDIT_TEAM_LEADER entry for this team');
+  assert.equal(entry.actorRegistrationNumber, 'REG-ADMIN-1');
+  assert.equal(entry.details?.previousName, 'Aryan');
+  assert.equal(entry.details?.newName, 'Aryan Renamed');
+});
+
+test('editing a member name without an admin session is rejected', async () => {
+  const { teams } = await getInventory();
+  const target = teams.find(t => t.id === teamId).members[0];
+
+  const res = await api.patchUnauth(`/api/teams/${teamId}/members/${target.id}`, { name: 'Someone Else' });
+  assert.equal(res.status, 401);
+});
+
+test('editing a member name without authorizing credentials is rejected', async () => {
+  const { teams } = await getInventory();
+  const target = teams.find(t => t.id === teamId).members[0];
+
+  const res = await api.patch(`/api/teams/${teamId}/members/${target.id}`, { name: 'Someone Else' });
+  assert.equal(res.status, 400);
+});
+
+test('an admin can edit a member name, and it is audit-logged', async () => {
+  const { teams } = await getInventory();
+  const target = teams.find(t => t.id === teamId).members.find(m => m.name === 'Member One');
+
+  const res = await api.patch(`/api/teams/${teamId}/members/${target.id}`, {
+    name: 'Member One Renamed',
+    changedBy: { name: 'Aryan', registrationNumber: 'REG-ADMIN-1' }
+  });
+  assert.equal(res.status, 200);
+  const member = await res.json();
+  assert.equal(member.name, 'Member One Renamed');
+  assert.equal(member.registrationNumber, 'REG-MEM-1');
+
+  const { teams: after } = await getInventory();
+  assert.ok(after.find(t => t.id === teamId).members.some(m => m.name === 'Member One Renamed'));
+
+  const auditRes = await api.getAdmin('/api/audit-log?limit=500');
+  const entries = await auditRes.json();
+  const entry = entries.find(e => e.action === 'EDIT_TEAM_MEMBER' && e.details?.newName === 'Member One Renamed');
+  assert.ok(entry, 'expected an EDIT_TEAM_MEMBER entry for the rename');
+  assert.equal(entry.actorRegistrationNumber, 'REG-ADMIN-1');
+  assert.equal(entry.details?.previousName, 'Member One');
+});
+
+test('editing a nonexistent member returns 404', async () => {
+  const res = await api.patch(`/api/teams/${teamId}/members/00000000-0000-0000-0000-000000000000`, {
+    name: 'Ghost Rename',
+    changedBy: { name: 'Aryan', registrationNumber: 'REG-ADMIN-1' }
+  });
+  assert.equal(res.status, 404);
+});

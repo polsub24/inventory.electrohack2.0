@@ -23,7 +23,7 @@ export class TeamHasUnreturnedComponentsError extends Error {
 
 export interface AuditLogEntry {
   id: string;
-  action: 'REINSTATE_REQUEST' | 'DELETE_COMPONENT' | 'DELETE_REQUEST' | 'DELETE_TEAM' | 'ADD_TEAM_MEMBER' | 'REMOVE_TEAM_MEMBER';
+  action: 'REINSTATE_REQUEST' | 'DELETE_COMPONENT' | 'DELETE_REQUEST' | 'DELETE_TEAM' | 'ADD_TEAM_MEMBER' | 'REMOVE_TEAM_MEMBER' | 'EDIT_TEAM_LEADER' | 'EDIT_TEAM_MEMBER';
   actorName: string;
   actorRegistrationNumber: string;
   targetType: 'request' | 'component' | 'team';
@@ -324,6 +324,28 @@ const api = {
       method: 'POST',
     });
     if (!response.ok) throw await createApiError(response, 'Failed to finalize team roster');
+    return response.json();
+  },
+
+  // Admin-only correction, unlike add/remove — always requires changedBy and
+  // is always sent with the admin token, regardless of roster lock state.
+  async editTeamLeaderName(teamId: string, leaderName: string, changedBy: { name: string; registrationNumber: string }): Promise<Team> {
+    const response = await fetch(`${BASE_URL}/api/teams/${teamId}/leader-name`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...adminHeaders() },
+      body: JSON.stringify({ leaderName, changedBy }),
+    });
+    if (!response.ok) throw await createApiError(response, 'Failed to edit leader name', true);
+    return response.json();
+  },
+
+  async editTeamMemberName(teamId: string, memberId: string, name: string, changedBy: { name: string; registrationNumber: string }): Promise<TeamMember> {
+    const response = await fetch(`${BASE_URL}/api/teams/${teamId}/members/${memberId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...adminHeaders() },
+      body: JSON.stringify({ name, changedBy }),
+    });
+    if (!response.ok) throw await createApiError(response, 'Failed to edit member name', true);
     return response.json();
   },
 

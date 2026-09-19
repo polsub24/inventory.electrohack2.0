@@ -11,6 +11,8 @@ const ACTION_LABELS: Record<AuditLogEntry['action'], string> = {
   DELETE_TEAM: 'Delete Team',
   ADD_TEAM_MEMBER: 'Add Member',
   REMOVE_TEAM_MEMBER: 'Remove Member',
+  EDIT_TEAM_LEADER: 'Edit Leader Name',
+  EDIT_TEAM_MEMBER: 'Edit Member Name',
 };
 
 const ACTION_STYLES: Record<AuditLogEntry['action'], string> = {
@@ -20,6 +22,8 @@ const ACTION_STYLES: Record<AuditLogEntry['action'], string> = {
   DELETE_TEAM: 'text-red-400 border-red-500/30 bg-red-500/5',
   ADD_TEAM_MEMBER: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/5',
   REMOVE_TEAM_MEMBER: 'text-amber-400 border-amber-500/30 bg-amber-500/5',
+  EDIT_TEAM_LEADER: 'text-blue-400 border-blue-500/30 bg-blue-500/5',
+  EDIT_TEAM_MEMBER: 'text-blue-400 border-blue-500/30 bg-blue-500/5',
 };
 
 // Each action this logs stores a slightly different `details` shape (see
@@ -49,6 +53,9 @@ const summarizeDetails = (entry: AuditLogEntry): string => {
       return `${d.teamName ?? 'Unknown team'} · added "${d.memberName ?? 'Unknown'}"${d.memberRegistrationNumber ? ` (${d.memberRegistrationNumber})` : ''}`;
     case 'REMOVE_TEAM_MEMBER':
       return `${d.teamName ?? 'Unknown team'} · removed "${d.memberName ?? 'Unknown'}"${d.memberRegistrationNumber ? ` (${d.memberRegistrationNumber})` : ''}`;
+    case 'EDIT_TEAM_LEADER':
+    case 'EDIT_TEAM_MEMBER':
+      return `${d.teamName ?? 'Unknown team'} · "${d.previousName ?? '?'}" → "${d.newName ?? '?'}"`;
     default:
       return JSON.stringify(d);
   }

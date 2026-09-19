@@ -1385,6 +1385,116 @@ app.post('/api/teams/:id/lock', checkDbConnection, async (req, res) => {
   }
 });
 
+// Edit Team Leader Name — admin-only correction (typos, name changes), unlike
+// add/remove-member which is open to the team itself pre-lock. Credentialed
+// and audit-logged the same way every other admin data change is.
+app.patch('/api/teams/:id/leader-name', checkDbConnection, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const leaderName = typeof req.body?.leaderName === 'string' ? req.body.leaderName.trim() : '';
+  const changedByName = typeof req.body?.changedBy?.name === 'string' ? req.body.changedBy.name.trim() : '';
+  const changedByRegNum = typeof req.body?.changedBy?.registrationNumber === 'string' ? req.body.changedBy.registrationNumber.trim() : '';
+  if (!leaderName) {
+    return res.status(400).json({ error: 'Leader name is required.' });
+  }
+  if (!changedByName || !changedByRegNum) {
+    return res.status(400).json({ error: 'Name and registration number of the admin authorizing this change are required.' });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    const { rows: teamRows } = await client.query('SELECT * FROM teams WHERE id = $1 FOR UPDATE', [id]);
+    if (teamRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Team not found.' });
+    }
+    const previousName = teamRows[0].leader_name;
+
+    const { rows: updatedRows } = await client.query(
+      'UPDATE teams SET leader_name = $1 WHERE id = $2 RETURNING *',
+      [leaderName, id]
+    );
+
+    await recordAuditLog(client, {
+      action: 'EDIT_TEAM_LEADER',
+      actorName: changedByName,
+      actorRegistrationNumber: changedByRegNum,
+      targetType: 'team',
+      targetId: id,
+      details: { teamName: teamRows[0].team_name, previousName, newName: leaderName }
+    });
+
+    await client.query('COMMIT');
+    const { rows: memberRows } = await client.query('SELECT * FROM team_members WHERE team_id = $1 ORDER BY added_at', [id]);
+    res.json(mapTeam(updatedRows[0], memberRows));
+  } catch (err) {
+    if (client) await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// Edit Team Member Name — same admin-only, credentialed, audit-logged pattern.
+app.patch('/api/teams/:id/members/:memberId', checkDbConnection, requireAdmin, async (req, res) => {
+  const { id, memberId } = req.params;
+  if (!isValidUUID(id) || !isValidUUID(memberId)) {
+    return res.status(400).json({ error: 'Invalid team or member id.' });
+  }
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  const changedByName = typeof req.body?.changedBy?.name === 'string' ? req.body.changedBy.name.trim() : '';
+  const changedByRegNum = typeof req.body?.changedBy?.registrationNumber === 'string' ? req.body.changedBy.registrationNumber.trim() : '';
+  if (!name) {
+    return res.status(400).json({ error: 'Member name is required.' });
+  }
+  if (!changedByName || !changedByRegNum) {
+    return res.status(400).json({ error: 'Name and registration number of the admin authorizing this change are required.' });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    const { rows: teamRows } = await client.query('SELECT * FROM teams WHERE id = $1 FOR UPDATE', [id]);
+    if (teamRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Team not found.' });
+    }
+
+    const { rows: memberRows } = await client.query('SELECT * FROM team_members WHERE id = $1 AND team_id = $2', [memberId, id]);
+    if (memberRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Member not found on this team.' });
+    }
+    const previousName = memberRows[0].name;
+
+    const { rows: updatedRows } = await client.query(
+      'UPDATE team_members SET name = $1 WHERE id = $2 RETURNING *',
+      [name, memberId]
+    );
+
+    await recordAuditLog(client, {
+      action: 'EDIT_TEAM_MEMBER',
+      actorName: changedByName,
+      actorRegistrationNumber: changedByRegNum,
+      targetType: 'team',
+      targetId: id,
+      details: { teamName: teamRows[0].team_name, previousName, newName: name }
+    });
+
+    await client.query('COMMIT');
+    res.json(mapTeamMember(updatedRows[0]));
+  } catch (err) {
+    if (client) await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 // Audit Log (Admin) — read-only view of recorded actions (reinstate, delete
 // component, delete request). `?limit=` caps the page size (default 100, max 500).
 app.get('/api/audit-log', checkDbConnection, requireAdmin, async (req, res) => {

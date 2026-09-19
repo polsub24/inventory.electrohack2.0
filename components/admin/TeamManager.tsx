@@ -35,6 +35,9 @@ const TeamManager: React.FC = () => {
     const [rosterNewMemberRegNum, setRosterNewMemberRegNum] = useState('');
     const [rosterActionPending, setRosterActionPending] = useState<string | null>(null);
     const [rosterError, setRosterError] = useState('');
+    // 'leader' or a member id — which row's name is currently being edited inline.
+    const [editingRosterNameId, setEditingRosterNameId] = useState<string | null>(null);
+    const [editingRosterNameValue, setEditingRosterNameValue] = useState('');
 
     // Add team form state
     const [teamName, setTeamName] = useState('');
@@ -123,6 +126,8 @@ const TeamManager: React.FC = () => {
         setRosterNewMemberName('');
         setRosterNewMemberRegNum('');
         setRosterError('');
+        setEditingRosterNameId(null);
+        setEditingRosterNameValue('');
     };
 
     const closeManageRoster = () => {
@@ -166,6 +171,40 @@ const TeamManager: React.FC = () => {
             await refreshData();
         } catch (err: any) {
             setRosterError(err.message || 'Failed to remove member.');
+        } finally {
+            setRosterActionPending(null);
+        }
+    };
+
+    const startEditingRosterName = (id: string, currentName: string) => {
+        setEditingRosterNameId(id);
+        setEditingRosterNameValue(currentName);
+        setRosterError('');
+    };
+
+    const cancelEditingRosterName = () => {
+        setEditingRosterNameId(null);
+        setEditingRosterNameValue('');
+    };
+
+    const handleSaveRosterName = async () => {
+        if (!manageRosterTeamId || !editingRosterNameId || !rosterCredentialsReady) return;
+        const newName = editingRosterNameValue.trim();
+        if (!newName) return;
+        setRosterActionPending(`edit-${editingRosterNameId}`);
+        setRosterError('');
+        const changedBy = { name: rosterAdminName.trim(), registrationNumber: rosterAdminRegNum.trim() };
+        try {
+            if (editingRosterNameId === 'leader') {
+                await api.editTeamLeaderName(manageRosterTeamId, newName, changedBy);
+            } else {
+                await api.editTeamMemberName(manageRosterTeamId, editingRosterNameId, newName, changedBy);
+            }
+            setEditingRosterNameId(null);
+            setEditingRosterNameValue('');
+            await refreshData();
+        } catch (err: any) {
+            setRosterError(err.message || 'Failed to edit name.');
         } finally {
             setRosterActionPending(null);
         }
@@ -722,25 +761,97 @@ const TeamManager: React.FC = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <div className="flex items-center justify-between bg-black/40 border border-gray-800 rounded-lg p-3">
-                                    <div>
-                                        <p className="text-sm font-bold text-gray-100">{team.leaderName}</p>
-                                        <p className="text-[10px] text-emerald-400 uppercase tracking-widest font-black">Team Leader</p>
-                                    </div>
+                                <div className="flex items-center justify-between bg-black/40 border border-gray-800 rounded-lg p-3 gap-3">
+                                    {editingRosterNameId === 'leader' ? (
+                                        <>
+                                            <input
+                                                autoFocus
+                                                value={editingRosterNameValue}
+                                                onChange={(e) => setEditingRosterNameValue(e.target.value)}
+                                                disabled={!!rosterActionPending}
+                                                className="flex-1 bg-black/60 border border-emerald-500/40 rounded px-3 py-2 text-sm text-white outline-none focus:border-emerald-400"
+                                            />
+                                            <button
+                                                onClick={handleSaveRosterName}
+                                                disabled={!rosterCredentialsReady || !editingRosterNameValue.trim() || !!rosterActionPending}
+                                                className="text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-40"
+                                            >
+                                                {rosterActionPending === 'edit-leader' ? <Spinner /> : 'Save'}
+                                            </button>
+                                            <button
+                                                onClick={cancelEditingRosterName}
+                                                disabled={!!rosterActionPending}
+                                                className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-40"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-100">{team.leaderName}</p>
+                                                <p className="text-[10px] text-emerald-400 uppercase tracking-widest font-black">Team Leader</p>
+                                            </div>
+                                            <button
+                                                onClick={() => startEditingRosterName('leader', team.leaderName)}
+                                                disabled={!rosterCredentialsReady || !!rosterActionPending}
+                                                className="text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-40"
+                                            >
+                                                Edit
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                                 {team.members.map((member) => (
-                                    <div key={member.id} className="flex items-center justify-between bg-black/40 border border-gray-800 rounded-lg p-3">
-                                        <div>
-                                            <p className="text-sm font-bold text-gray-100">{member.name}</p>
-                                            <p className="text-[10px] text-gray-500 font-mono uppercase">{member.registrationNumber}</p>
-                                        </div>
-                                        <button
-                                            onClick={() => handleRosterRemoveMember(member.id)}
-                                            disabled={!rosterCredentialsReady || !!rosterActionPending}
-                                            className="text-[10px] font-black uppercase tracking-widest text-red-500/70 hover:text-red-400 transition-colors disabled:opacity-40"
-                                        >
-                                            {rosterActionPending === member.id ? <Spinner /> : 'Remove'}
-                                        </button>
+                                    <div key={member.id} className="flex items-center justify-between bg-black/40 border border-gray-800 rounded-lg p-3 gap-3">
+                                        {editingRosterNameId === member.id ? (
+                                            <>
+                                                <input
+                                                    autoFocus
+                                                    value={editingRosterNameValue}
+                                                    onChange={(e) => setEditingRosterNameValue(e.target.value)}
+                                                    disabled={!!rosterActionPending}
+                                                    className="flex-1 bg-black/60 border border-emerald-500/40 rounded px-3 py-2 text-sm text-white outline-none focus:border-emerald-400"
+                                                />
+                                                <button
+                                                    onClick={handleSaveRosterName}
+                                                    disabled={!rosterCredentialsReady || !editingRosterNameValue.trim() || !!rosterActionPending}
+                                                    className="text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-40"
+                                                >
+                                                    {rosterActionPending === `edit-${member.id}` ? <Spinner /> : 'Save'}
+                                                </button>
+                                                <button
+                                                    onClick={cancelEditingRosterName}
+                                                    disabled={!!rosterActionPending}
+                                                    className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-40"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div>
+                                                    <p className="text-sm font-bold text-gray-100">{member.name}</p>
+                                                    <p className="text-[10px] text-gray-500 font-mono uppercase">{member.registrationNumber}</p>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <button
+                                                        onClick={() => startEditingRosterName(member.id, member.name)}
+                                                        disabled={!rosterCredentialsReady || !!rosterActionPending}
+                                                        className="text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-40"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleRosterRemoveMember(member.id)}
+                                                        disabled={!rosterCredentialsReady || !!rosterActionPending}
+                                                        className="text-[10px] font-black uppercase tracking-widest text-red-500/70 hover:text-red-400 transition-colors disabled:opacity-40"
+                                                    >
+                                                        {rosterActionPending === member.id ? <Spinner /> : 'Remove'}
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 ))}
                             </div>
